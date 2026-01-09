@@ -34,12 +34,7 @@ class Cache:
         except json.JSONDecodeError:
             return value.decode() if isinstance(value, bytes) else value
 
-    async def set(
-        self,
-        key: str,
-        value: Any,
-        ttl: int | None = None
-    ) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set a value in cache."""
         serialized = json.dumps(value) if not isinstance(value, (str, bytes)) else value
         if ttl:
@@ -96,8 +91,7 @@ class Cache:
     async def set_wallet_last_trade(self, address: str, trade_id: int) -> None:
         """Record last trade for a wallet."""
         await self.redis.set(
-            f"{self.PREFIX_WALLET}:{address}:last_trade",
-            str(trade_id)
+            f"{self.PREFIX_WALLET}:{address}:last_trade", str(trade_id)
         )
 
     async def get_wallet_last_trade(self, address: str) -> int | None:
@@ -110,9 +104,7 @@ class Cache:
     async def set_market_price(self, market_id: str, price: float) -> None:
         """Cache current market price."""
         await self.redis.setex(
-            f"{self.PREFIX_MARKET}:{market_id}:price",
-            60,  # 1 minute TTL
-            str(price)
+            f"{self.PREFIX_MARKET}:{market_id}:price", 60, str(price)  # 1 minute TTL
         )
 
     async def get_market_price(self, market_id: str) -> float | None:
