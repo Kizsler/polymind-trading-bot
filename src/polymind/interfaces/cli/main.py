@@ -50,15 +50,20 @@ def main(
 @app.command()
 def start() -> None:
     """Start the trading bot."""
+    from polymind.runner import run_bot
+
     console.print(
         Panel.fit(
             "[bold green]Starting PolyMind...[/bold green]\n"
-            "Mode: [yellow]paper[/yellow]\n"
             "Press Ctrl+C to stop",
             title="PolyMind",
         )
     )
-    console.print("[dim]Bot start not yet implemented[/dim]")
+
+    try:
+        run_bot()
+    except KeyboardInterrupt:
+        console.print("[yellow]Shutting down...[/yellow]")
 
 
 @app.command()
