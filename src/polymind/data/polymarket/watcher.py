@@ -74,7 +74,7 @@ class WalletWatcher:
         """Parse a raw trade event into a TradeSignal.
 
         Maps BUY side to YES and SELL side to NO.
-        Uses maker address if available, otherwise uses taker.
+        Handles both CLOB API format and Data API format.
 
         Args:
             event: Raw trade event dictionary from the API.
@@ -82,13 +82,17 @@ class WalletWatcher:
         Returns:
             TradeSignal instance with parsed data.
         """
-        # Get wallet address (prefer maker, fallback to taker)
-        wallet = event.get("maker") or event.get("taker", "")
-        wallet = wallet.lower()
+        # Get wallet address - Data API uses proxyWallet, CLOB uses maker/taker
+        wallet = event.get("proxyWallet") or event.get("maker") or event.get("taker", "")
+        wallet = wallet.lower() if wallet else ""
 
-        # Map BUY -> YES, SELL -> NO
-        raw_side = event.get("side", "")
-        side = "YES" if raw_side == "BUY" else "NO"
+        # Map BUY -> YES, SELL -> NO (or use outcome directly if available)
+        outcome = event.get("outcome", "")
+        if outcome:
+            side = "YES" if outcome.lower() in ("yes", "up") else "NO"
+        else:
+            raw_side = event.get("side", "")
+            side = "YES" if raw_side == "BUY" else "NO"
 
         # Parse timestamp (can be string or int)
         timestamp_raw = event.get("timestamp", 0)
@@ -96,16 +100,25 @@ class WalletWatcher:
             timestamp_raw = int(timestamp_raw)
         timestamp = datetime.fromtimestamp(timestamp_raw, tz=UTC)
 
+        # Get market ID - Data API uses conditionId or slug
+        market_id = event.get("conditionId") or event.get("market") or event.get("slug", "")
+
+        # Get token ID - Data API uses asset, CLOB uses asset_id
+        token_id = event.get("asset") or event.get("asset_id", "")
+
+        # Get tx hash - Data API uses transactionHash
+        tx_hash = event.get("transactionHash") or event.get("transaction_hash", "")
+
         return TradeSignal(
             wallet=wallet,
-            market_id=event.get("market", ""),
-            token_id=event.get("asset_id", ""),
+            market_id=market_id,
+            token_id=token_id,
             side=side,
             size=float(event.get("size", 0)),
             price=float(event.get("price", 0)),
             source=SignalSource.CLOB,
             timestamp=timestamp,
-            tx_hash=event.get("transaction_hash", ""),
+            tx_hash=tx_hash,
         )
 
     def process_event(self, event: dict[str, Any]) -> TradeSignal | None:
