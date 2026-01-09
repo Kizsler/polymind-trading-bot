@@ -1,8 +1,9 @@
 """Tests for Polymarket wallet watcher service."""
 
+import asyncio
 from datetime import datetime
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -252,3 +253,182 @@ async def test_watcher_stop_sets_not_running(watcher: WalletWatcher) -> None:
         await task
     except asyncio.CancelledError:
         pass
+
+
+@pytest.mark.asyncio
+async def test_watcher_polls_data_api() -> None:
+    """WalletWatcher should poll Data API for trades."""
+    mock_data_api = AsyncMock()
+    mock_data_api.get_wallet_trades = AsyncMock(return_value=[
+        {
+            "market": "0x123",
+            "asset_id": "token1",
+            "side": "BUY",
+            "size": "100",
+            "price": "0.55",
+            "timestamp": "1704067200",
+            "transaction_hash": "0xabc",
+            "maker": "0xwallet123",
+        },
+    ])
+
+    signals_received: list[TradeSignal] = []
+
+    def on_signal(signal: TradeSignal) -> None:
+        signals_received.append(signal)
+
+    watcher = WalletWatcher(
+        data_api=mock_data_api, on_signal=on_signal, poll_interval=0.1
+    )
+    watcher.add_wallet("0xwallet123")
+
+    # Start watcher in background
+    task = asyncio.create_task(watcher.start())
+
+    # Let it poll once
+    await asyncio.sleep(0.2)
+    await watcher.stop()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Should have received the trade
+    assert len(signals_received) >= 1
+    assert signals_received[0].wallet == "0xwallet123"
+
+
+@pytest.mark.asyncio
+async def test_watcher_deduplicates_trades() -> None:
+    """WalletWatcher should not emit duplicate trades."""
+    # Same trade returned twice
+    trade = {
+        "market": "0x123",
+        "asset_id": "token1",
+        "side": "BUY",
+        "size": "100",
+        "price": "0.55",
+        "timestamp": "1704067200",
+        "transaction_hash": "0xabc",
+        "maker": "0xwallet123",
+    }
+
+    mock_data_api = AsyncMock()
+    mock_data_api.get_wallet_trades = AsyncMock(return_value=[trade])
+
+    signals_received: list[TradeSignal] = []
+    watcher = WalletWatcher(
+        data_api=mock_data_api,
+        on_signal=lambda s: signals_received.append(s),
+        poll_interval=0.1,
+    )
+    watcher.add_wallet("0xwallet123")
+
+    task = asyncio.create_task(watcher.start())
+    await asyncio.sleep(0.35)  # Allow 3+ polls
+    await watcher.stop()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Should only emit once despite multiple polls
+    assert len(signals_received) == 1
+
+
+@pytest.mark.asyncio
+async def test_watcher_handles_api_errors() -> None:
+    """WalletWatcher should handle API errors gracefully."""
+    mock_data_api = AsyncMock()
+    mock_data_api.get_wallet_trades = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    watcher = WalletWatcher(data_api=mock_data_api, poll_interval=0.1)
+    watcher.add_wallet("0xwallet123")
+
+    task = asyncio.create_task(watcher.start())
+    await asyncio.sleep(0.15)  # Let it try to poll
+    await watcher.stop()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Should not crash - just continue
+    assert True
+
+
+@pytest.mark.asyncio
+async def test_watcher_tracks_last_timestamp_per_wallet() -> None:
+    """WalletWatcher should track last timestamp per wallet for incremental polling."""
+    mock_data_api = AsyncMock()
+    mock_data_api.get_wallet_trades = AsyncMock(return_value=[
+        {
+            "market": "0x123",
+            "asset_id": "token1",
+            "side": "BUY",
+            "size": "100",
+            "price": "0.55",
+            "timestamp": "1704067200",
+            "transaction_hash": "0xabc",
+            "maker": "0xwallet123",
+        },
+    ])
+
+    watcher = WalletWatcher(data_api=mock_data_api, poll_interval=0.1)
+    watcher.add_wallet("0xwallet123")
+
+    task = asyncio.create_task(watcher.start())
+    await asyncio.sleep(0.25)  # Let it poll twice
+    await watcher.stop()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Should have updated last timestamp
+    assert "0xwallet123" in watcher._last_timestamp
+    assert watcher._last_timestamp["0xwallet123"] == 1704067200
+
+
+@pytest.mark.asyncio
+async def test_watcher_passes_since_timestamp_to_api() -> None:
+    """WalletWatcher should pass since_timestamp to API after first poll."""
+    mock_data_api = AsyncMock()
+    mock_data_api.get_wallet_trades = AsyncMock(return_value=[
+        {
+            "market": "0x123",
+            "asset_id": "token1",
+            "side": "BUY",
+            "size": "100",
+            "price": "0.55",
+            "timestamp": "1704067200",
+            "transaction_hash": "0xabc",
+            "maker": "0xwallet123",
+        },
+    ])
+
+    watcher = WalletWatcher(data_api=mock_data_api, poll_interval=0.1)
+    watcher.add_wallet("0xwallet123")
+
+    task = asyncio.create_task(watcher.start())
+    await asyncio.sleep(0.25)  # Let it poll twice
+    await watcher.stop()
+
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Check the API was called with since_timestamp on second call
+    calls = mock_data_api.get_wallet_trades.call_args_list
+    assert len(calls) >= 2
+    # First call should have no since_timestamp
+    assert calls[0].kwargs.get("since_timestamp") is None
+    # Second call should have since_timestamp set
+    assert calls[1].kwargs.get("since_timestamp") == 1704067200
