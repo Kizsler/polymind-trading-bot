@@ -39,38 +39,78 @@ async def test_bot_runner_initializes_components() -> None:
 @pytest.mark.asyncio
 async def test_bot_runner_stop_closes_connections() -> None:
     """BotRunner stop should close all connections."""
+    import asyncio
+
     runner = BotRunner.__new__(BotRunner)
     runner._db = AsyncMock()
     runner._cache = AsyncMock()
-    runner._running = True
+    runner._shutdown_event = asyncio.Event()
+    runner._stopping = False
 
     await runner.stop()
 
     runner._db.close.assert_called_once()
     runner._cache.close.assert_called_once()
-    assert runner._running is False
+    assert runner._shutdown_event.is_set()
+    assert runner._stopping is True
 
 
 @pytest.mark.asyncio
 async def test_bot_runner_is_running_property() -> None:
     """BotRunner should have is_running property."""
-    runner = BotRunner.__new__(BotRunner)
-    runner._running = False
-    assert runner.is_running is False
+    import asyncio
 
-    runner._running = True
+    runner = BotRunner.__new__(BotRunner)
+    runner._shutdown_event = asyncio.Event()
+
+    # Not set means running
     assert runner.is_running is True
+
+    # Set means stopped
+    runner._shutdown_event.set()
+    assert runner.is_running is False
 
 
 @pytest.mark.asyncio
 async def test_bot_runner_stop_handles_none_connections() -> None:
     """BotRunner stop should handle None connections gracefully."""
+    import asyncio
+
     runner = BotRunner.__new__(BotRunner)
     runner._db = None
     runner._cache = None
-    runner._running = True
+    runner._shutdown_event = asyncio.Event()
+    runner._stopping = False
 
     # Should not raise
     await runner.stop()
 
-    assert runner._running is False
+    assert runner._shutdown_event.is_set()
+    assert runner._stopping is True
+
+
+@pytest.mark.asyncio
+async def test_bot_runner_stop_prevents_double_stop() -> None:
+    """BotRunner stop should only run once (guard against double-stop)."""
+    import asyncio
+
+    runner = BotRunner.__new__(BotRunner)
+    runner._db = AsyncMock()
+    runner._cache = AsyncMock()
+    runner._shutdown_event = asyncio.Event()
+    runner._stopping = False
+
+    # First stop
+    await runner.stop()
+    assert runner._stopping is True
+    runner._db.close.assert_called_once()
+    runner._cache.close.assert_called_once()
+
+    # Reset mocks to verify they don't get called again
+    runner._db.close.reset_mock()
+    runner._cache.close.reset_mock()
+
+    # Second stop should be a no-op
+    await runner.stop()
+    runner._db.close.assert_not_called()
+    runner._cache.close.assert_not_called()

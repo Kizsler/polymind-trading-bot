@@ -64,6 +64,9 @@ def start() -> None:
         run_bot()
     except KeyboardInterrupt:
         console.print("[yellow]Shutting down...[/yellow]")
+    except Exception as e:
+        console.print(f"[bold red]Error: {e}[/bold red]")
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -2,7 +2,6 @@
 
 import asyncio
 import sys
-from typing import Any
 
 from polymind.config.settings import Settings, load_settings
 from polymind.storage.cache import Cache, create_cache
@@ -20,38 +19,50 @@ class BotRunner:
         self._settings: Settings | None = None
         self._db: Database | None = None
         self._cache: Cache | None = None
-        self._running: bool = False
+        self._shutdown_event: asyncio.Event = asyncio.Event()
+        self._stopping: bool = False
 
     async def start(self) -> None:
         """Start the bot and initialize all components."""
         logger.info("Starting PolyMind...")
 
-        # Load settings
-        self._settings = load_settings()
+        try:
+            # Load settings
+            self._settings = load_settings()
 
-        # Configure logging
-        configure_logging(level=self._settings.log_level)
+            # Configure logging
+            configure_logging(level=self._settings.log_level)
 
-        # Initialize database
-        self._db = Database(self._settings)
-        await self._db.create_tables()
-        logger.info("Database connected")
+            # Initialize database
+            self._db = Database(self._settings)
+            await self._db.create_tables()
+            logger.info("Database connected")
 
-        # Initialize cache
-        self._cache = await create_cache(self._settings.redis.url)
-        logger.info("Cache connected")
+            # Initialize cache
+            self._cache = await create_cache(self._settings.redis.url)
+            logger.info("Cache connected")
 
-        # Set initial mode
-        await self._cache.set_mode(self._settings.mode)
-        logger.info(f"Mode set to: {self._settings.mode}")
+            # Set initial mode
+            await self._cache.set_mode(self._settings.mode)
+            logger.info(f"Mode set to: {self._settings.mode}")
 
-        self._running = True
-        logger.info("PolyMind started successfully")
+            # Clear shutdown event to indicate running state
+            self._shutdown_event.clear()
+            logger.info("PolyMind started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start PolyMind: {e}")
+            await self.stop()
+            raise
 
     async def stop(self) -> None:
         """Stop the bot and close all connections."""
+        # Guard against double-stop
+        if self._stopping:
+            return
+        self._stopping = True
+
         logger.info("Stopping PolyMind...")
-        self._running = False
+        self._shutdown_event.set()
 
         if self._cache:
             await self._cache.close()
@@ -76,19 +87,19 @@ class BotRunner:
                 loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
 
         try:
-            while self._running:
+            while not self._shutdown_event.is_set():
                 # Main loop - process signals, check wallets, etc.
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
         finally:
-            if self._running:
+            if not self._stopping:
                 await self.stop()
 
     @property
     def is_running(self) -> bool:
         """Check if bot is running."""
-        return self._running
+        return not self._shutdown_event.is_set()
 
 
 def run_bot() -> None:
