@@ -9,7 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class RiskConfig(BaseSettings):
     """Risk management configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="POLYMIND_RISK_")
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_RISK_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     max_daily_loss: float = Field(
         default=500.0, description="Maximum daily loss in USD"
@@ -33,16 +38,22 @@ class RiskConfig(BaseSettings):
         mode="before",
     )
     @classmethod
-    def validate_positive(cls, v: float) -> float:
-        if v <= 0:
+    def validate_positive(cls, v: float | str) -> float:
+        v_float = float(v)
+        if v_float <= 0:
             raise ValueError("Value must be positive")
-        return v
+        return v_float
 
 
 class DatabaseConfig(BaseSettings):
     """Database configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="POLYMIND_DB_")
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_DB_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     host: str = Field(default="localhost")
     port: int = Field(default=5432)
@@ -59,7 +70,12 @@ class DatabaseConfig(BaseSettings):
 class RedisConfig(BaseSettings):
     """Redis configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="POLYMIND_REDIS_")
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_REDIS_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     host: str = Field(default="localhost")
     port: int = Field(default=6379)
@@ -74,7 +90,12 @@ class RedisConfig(BaseSettings):
 class ClaudeConfig(BaseSettings):
     """Claude API configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="POLYMIND_CLAUDE_")
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_CLAUDE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: str = Field(default="")
     model: str = Field(default="claude-sonnet-4-20250514")
@@ -84,7 +105,12 @@ class ClaudeConfig(BaseSettings):
 class DiscordConfig(BaseSettings):
     """Discord bot configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="POLYMIND_DISCORD_")
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_DISCORD_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     bot_token: str = Field(default="")
     channel_id: str = Field(default="")
@@ -97,6 +123,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="POLYMIND_",
         env_nested_delimiter="__",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     app_name: str = Field(default="polymind")
