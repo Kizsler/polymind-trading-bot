@@ -6,9 +6,11 @@ from polymind.data.polymarket.exceptions import (
     PolymarketAuthError,
     PolymarketError,
 )
+from polymind.data.polymarket.markets import MarketDataService
 from polymind.data.polymarket.watcher import WalletWatcher
 
 __all__ = [
+    "MarketDataService",
     "PolymarketClient",
     "PolymarketError",
     "PolymarketAPIError",

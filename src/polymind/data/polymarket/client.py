@@ -5,6 +5,10 @@ from typing import Any
 from py_clob_client.client import ClobClient
 
 from polymind.config.settings import Settings
+from polymind.data.polymarket.exceptions import (
+    PolymarketAPIError,
+    PolymarketAuthError,
+)
 
 
 class PolymarketClient:
@@ -33,17 +37,25 @@ class PolymarketClient:
 
     def _setup_auth(self, private_key: str) -> None:
         """Set up authenticated client."""
-        self._client = ClobClient(
-            host=self.CLOB_HOST,
-            chain_id=self.CHAIN_ID,
-            key=private_key,
-        )
-        creds = self._client.create_or_derive_api_creds()
-        self._client.set_api_creds(creds)
+        try:
+            self._client = ClobClient(
+                host=self.CLOB_HOST,
+                chain_id=self.CHAIN_ID,
+                key=private_key,
+            )
+            creds = self._client.create_or_derive_api_creds()
+            self._client.set_api_creds(creds)
+        except Exception as e:
+            raise PolymarketAuthError(
+                f"Failed to authenticate with Polymarket: {e}"
+            ) from e
 
     def get_markets(self) -> list[dict[str, Any]]:
         """Get all active markets."""
-        return self._client.get_simplified_markets()
+        try:
+            return self._client.get_simplified_markets()
+        except Exception as e:
+            raise PolymarketAPIError(f"Failed to fetch markets: {e}") from e
 
     def get_market(self, condition_id: str) -> dict[str, Any] | None:
         """Get a specific market by condition ID."""
@@ -55,19 +67,39 @@ class PolymarketClient:
 
     def get_orderbook(self, token_id: str) -> dict[str, Any]:
         """Get orderbook for a token."""
-        return self._client.get_order_book(token_id)
+        try:
+            return self._client.get_order_book(token_id)
+        except Exception as e:
+            raise PolymarketAPIError(
+                f"Failed to fetch orderbook for token {token_id}: {e}"
+            ) from e
 
     def get_price(self, token_id: str, side: str = "BUY") -> float:
         """Get current price for a token."""
-        price = self._client.get_price(token_id, side)
-        return float(price) if price else 0.0
+        try:
+            price = self._client.get_price(token_id, side)
+            return float(price) if price else 0.0
+        except Exception as e:
+            raise PolymarketAPIError(
+                f"Failed to fetch price for token {token_id}: {e}"
+            ) from e
 
     def get_midpoint(self, token_id: str) -> float:
         """Get midpoint price for a token."""
-        mid = self._client.get_midpoint(token_id)
-        return float(mid) if mid else 0.0
+        try:
+            mid = self._client.get_midpoint(token_id)
+            return float(mid) if mid else 0.0
+        except Exception as e:
+            raise PolymarketAPIError(
+                f"Failed to fetch midpoint for token {token_id}: {e}"
+            ) from e
 
     def get_last_trade_price(self, token_id: str) -> float:
         """Get last trade price for a token."""
-        price = self._client.get_last_trade_price(token_id)
-        return float(price) if price else 0.0
+        try:
+            price = self._client.get_last_trade_price(token_id)
+            return float(price) if price else 0.0
+        except Exception as e:
+            raise PolymarketAPIError(
+                f"Failed to fetch last trade price for token {token_id}: {e}"
+            ) from e
