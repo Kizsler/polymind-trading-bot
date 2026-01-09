@@ -75,7 +75,12 @@ class HealthChecker:
     async def _check_cache(self) -> bool:
         """Check cache connectivity."""
         try:
-            await self._cache.get("health:check")
+            # Use ping if available, otherwise try set/get cycle
+            if hasattr(self._cache, "redis") and hasattr(self._cache.redis, "ping"):
+                await self._cache.redis.ping()
+            else:
+                # Fallback: do a set/get to verify connectivity
+                await self._cache.set("health:check", "ok", ttl=10)
             return True
         except Exception as e:
             logger.error("Cache health check failed: {}", str(e))

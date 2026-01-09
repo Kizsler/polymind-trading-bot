@@ -1,6 +1,6 @@
 """Health check endpoint."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from polymind import __version__
 from polymind.interfaces.api.deps import get_cache, get_db
@@ -26,6 +26,7 @@ async def health() -> dict:
 
 @router.get("/health/detailed")
 async def detailed_health(
+    response: Response,
     db: Database = Depends(get_db),
     cache: Cache = Depends(get_cache),
 ) -> dict:
@@ -36,6 +37,9 @@ async def detailed_health(
     """
     checker = HealthChecker(db=db, cache=cache)
     status = await checker.check()
+
+    if not status.healthy:
+        response.status_code = 503
 
     return {
         "status": "ok" if status.healthy else "degraded",

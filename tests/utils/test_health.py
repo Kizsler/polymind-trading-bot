@@ -34,7 +34,7 @@ async def test_health_checker_reports_healthy_when_all_ok() -> None:
     mock_db.session.return_value = mock_context
 
     mock_cache = AsyncMock()
-    mock_cache.get = AsyncMock(return_value=None)
+    mock_cache.set = AsyncMock(return_value=None)
 
     checker = HealthChecker(db=mock_db, cache=mock_cache)
     status = await checker.check()
@@ -48,9 +48,20 @@ async def test_health_checker_reports_healthy_when_all_ok() -> None:
 @pytest.mark.asyncio
 async def test_health_checker_reports_unhealthy_on_cache_failure() -> None:
     """HealthChecker should report unhealthy when cache fails."""
-    mock_db = AsyncMock()
-    mock_cache = AsyncMock()
-    mock_cache.get = AsyncMock(side_effect=Exception("Connection failed"))
+    mock_db = MagicMock()
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(return_value=None)
+
+    # Set up async context manager properly for database
+    mock_context = AsyncMock()
+    mock_context.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_context.__aexit__ = AsyncMock(return_value=None)
+    mock_db.session.return_value = mock_context
+
+    mock_cache = MagicMock()
+    # Set up redis.ping() to fail
+    mock_cache.redis = MagicMock()
+    mock_cache.redis.ping = AsyncMock(side_effect=Exception("Connection failed"))
 
     checker = HealthChecker(db=mock_db, cache=mock_cache)
     status = await checker.check()
@@ -66,7 +77,7 @@ async def test_health_checker_reports_unhealthy_on_database_failure() -> None:
     # Make session() context manager raise an exception
     mock_db.session.return_value.__aenter__.side_effect = Exception("DB connection failed")
     mock_cache = AsyncMock()
-    mock_cache.get = AsyncMock(return_value=None)
+    mock_cache.set = AsyncMock(return_value=None)
 
     checker = HealthChecker(db=mock_db, cache=mock_cache)
     status = await checker.check()
@@ -80,8 +91,10 @@ async def test_health_checker_message_lists_failed_components() -> None:
     """HealthChecker message should list failed components."""
     mock_db = AsyncMock()
     mock_db.session.return_value.__aenter__.side_effect = Exception("DB error")
-    mock_cache = AsyncMock()
-    mock_cache.get = AsyncMock(side_effect=Exception("Cache error"))
+    mock_cache = MagicMock()
+    # Set up redis.ping() to fail
+    mock_cache.redis = MagicMock()
+    mock_cache.redis.ping = AsyncMock(side_effect=Exception("Cache error"))
 
     checker = HealthChecker(db=mock_db, cache=mock_cache)
     status = await checker.check()
