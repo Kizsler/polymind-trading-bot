@@ -1,0 +1,36 @@
+# PolyMind Default Configuration
+# Copy to config/local.yaml and customize
+
+app_name: polymind
+mode: paper  # paper | live | paused
+log_level: INFO
+
+risk:
+  max_daily_loss: 500.0
+  max_exposure_per_market: 200.0
+  max_exposure_per_wallet: 500.0
+  max_total_exposure: 2000.0
+  max_single_trade: 100.0
+  max_slippage: 0.03
+
+database:
+  host: localhost
+  port: 5432
+  name: polymind
+  user: postgres
+  password: postgres
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+
+claude:
+  api_key: ""  # Set via POLYMIND_CLAUDE_API_KEY
+  model: claude-sonnet-4-20250514
+  max_tokens: 1024
+
+discord:
+  bot_token: ""  # Set via POLYMIND_DISCORD_BOT_TOKEN
+  channel_id: ""
+  enabled: false
