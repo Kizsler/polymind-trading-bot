@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from polymind import __version__
-from polymind.interfaces.api.routes import health
+from polymind.interfaces.api.routes import health, status, wallets
 
 app = FastAPI(
     title="PolyMind API",
@@ -13,3 +13,5 @@ app = FastAPI(
 
 # Include routers
 app.include_router(health.router)
+app.include_router(status.router)
+app.include_router(wallets.router)
