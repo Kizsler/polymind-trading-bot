@@ -18,6 +18,10 @@ class Cache:
     def __init__(self, redis: Redis) -> None:
         self.redis = redis
 
+    async def close(self) -> None:
+        """Close Redis connection."""
+        await self.redis.aclose()
+
     # Generic operations
 
     async def get(self, key: str) -> Any | None:
@@ -39,12 +43,15 @@ class Cache:
         """Set a value in cache."""
         serialized = json.dumps(value) if not isinstance(value, (str, bytes)) else value
         if ttl:
-            return await self.redis.setex(key, ttl, serialized)
-        return await self.redis.set(key, serialized)
+            result = await self.redis.setex(key, ttl, serialized)
+            return bool(result)
+        result = await self.redis.set(key, serialized)
+        return bool(result)
 
     async def delete(self, key: str) -> int:
         """Delete a key from cache."""
-        return await self.redis.delete(key)
+        result = await self.redis.delete(key)
+        return int(result)
 
     # Risk state
 
@@ -55,7 +62,8 @@ class Cache:
 
     async def update_daily_pnl(self, delta: float) -> float:
         """Update daily P&L atomically."""
-        return await self.redis.incrbyfloat(f"{self.PREFIX_RISK}:daily_pnl", delta)
+        result = await self.redis.incrbyfloat(f"{self.PREFIX_RISK}:daily_pnl", delta)
+        return float(result)
 
     async def reset_daily_pnl(self) -> None:
         """Reset daily P&L to zero."""
@@ -68,7 +76,9 @@ class Cache:
 
     async def update_open_exposure(self, delta: float) -> float:
         """Update open exposure atomically."""
-        return await self.redis.incrbyfloat(f"{self.PREFIX_RISK}:open_exposure", delta)
+        key = f"{self.PREFIX_RISK}:open_exposure"
+        result = await self.redis.incrbyfloat(key, delta)
+        return float(result)
 
     # System state
 
