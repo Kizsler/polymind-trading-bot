@@ -1,13 +1,13 @@
 """Paper trading execution engine for simulated trades."""
 
-import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from polymind.core.brain.decision import AIDecision
 from polymind.data.models import TradeSignal
+from polymind.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CacheProtocol(Protocol):
@@ -81,10 +81,17 @@ class PaperExecutor:
         Returns:
             ExecutionResult indicating success/failure and execution details
         """
+        logger.debug(
+            "Starting paper execution: market={} side={} size={}",
+            signal.market_id,
+            signal.side,
+            decision.size,
+        )
+
         # Reject if AI decision is not to execute
         if not decision.execute:
             logger.info(
-                "Paper trade rejected: decision.execute=False, reason=%s",
+                "Paper trade rejected: decision.execute=False, reason={}",
                 decision.reasoning,
             )
             return ExecutionResult(
@@ -103,7 +110,7 @@ class PaperExecutor:
         await self.cache.update_open_exposure(executed_size)
 
         logger.info(
-            "Paper trade executed: market=%s, side=%s, size=%.4f, price=%.4f",
+            "Paper trade executed: market={} side={} size={:.4f} price={:.4f}",
             signal.market_id,
             signal.side,
             executed_size,

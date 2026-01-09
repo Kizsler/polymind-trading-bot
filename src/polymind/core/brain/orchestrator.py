@@ -6,6 +6,9 @@ from polymind.core.brain.context import DecisionContext
 from polymind.core.brain.decision import AIDecision
 from polymind.core.execution.paper import ExecutionResult
 from polymind.data.models import TradeSignal
+from polymind.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ContextBuilderProtocol(Protocol):
@@ -121,17 +124,36 @@ class DecisionBrain:
         Returns:
             ExecutionResult indicating success/failure and execution details
         """
+        logger.info(
+            "Processing signal: wallet={} market={} side={} size={}",
+            signal.wallet[:10],
+            signal.market_id,
+            signal.side,
+            signal.size,
+        )
+
         # Step 1: Build context from signal
         context = await self._context_builder.build(signal)
+        logger.debug("Context built for signal: market={}", signal.market_id)
 
         # Step 2: Get AI decision from Claude
         decision = await self._claude_client.evaluate(context)
+        logger.info(
+            "AI decision: execute={} size={} confidence={}",
+            decision.execute,
+            decision.size,
+            decision.confidence,
+        )
 
         # Step 3: Validate with risk manager
         validated_decision = await self._risk_manager.validate(decision)
 
         # Step 4: If rejected after risk validation, return failure result
         if not validated_decision.execute:
+            logger.warning(
+                "Trade rejected by risk manager: {}",
+                validated_decision.reasoning,
+            )
             return ExecutionResult(
                 success=False,
                 executed_size=0.0,
@@ -141,4 +163,11 @@ class DecisionBrain:
             )
 
         # Step 5: Execute trade and return result
-        return await self._executor.execute(signal, validated_decision)
+        result = await self._executor.execute(signal, validated_decision)
+        logger.info(
+            "Trade execution result: success={} size={} price={}",
+            result.success,
+            result.executed_size,
+            result.executed_price,
+        )
+        return result

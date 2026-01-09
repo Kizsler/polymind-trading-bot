@@ -5,6 +5,9 @@ from enum import Enum
 from typing import Protocol
 
 from polymind.core.brain.decision import AIDecision
+from polymind.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class RiskViolation(Enum):
@@ -72,13 +75,26 @@ class RiskManager:
             The original decision, a modified decision with adjusted size,
             or a rejection decision if risk limits are exceeded
         """
+        logger.debug(
+            "Starting risk validation: execute={} size={}",
+            decision.execute,
+            decision.size,
+        )
+
         # Pass through rejections unchanged
         if not decision.execute:
+            logger.info("Risk validation passed: decision already rejected")
             return decision
 
         # Check daily loss limit
         daily_pnl = await self.cache.get_daily_pnl()
         if daily_pnl <= -self.max_daily_loss:
+            logger.warning(
+                "Risk violation: {} (daily P&L: {:.2f}, limit: -{:.2f})",
+                RiskViolation.DAILY_LOSS_EXCEEDED.value,
+                daily_pnl,
+                self.max_daily_loss,
+            )
             return AIDecision.reject(
                 f"Trade blocked: {RiskViolation.DAILY_LOSS_EXCEEDED.value} "
                 f"(daily P&L: {daily_pnl:.2f}, limit: -{self.max_daily_loss:.2f})"
@@ -87,6 +103,12 @@ class RiskManager:
         # Cap trade size at max_single_trade
         adjusted_size = decision.size
         if adjusted_size > self.max_single_trade:
+            logger.warning(
+                "Risk violation: {} (requested: {:.4f}, limit: {:.4f})",
+                RiskViolation.TRADE_SIZE_EXCEEDED.value,
+                adjusted_size,
+                self.max_single_trade,
+            )
             adjusted_size = self.max_single_trade
 
         # Check total exposure limit
@@ -94,6 +116,12 @@ class RiskManager:
         remaining_capacity = self.max_total_exposure - current_exposure
 
         if remaining_capacity <= 0:
+            logger.warning(
+                "Risk violation: {} (current exposure: {:.2f}, limit: {:.2f})",
+                RiskViolation.EXPOSURE_EXCEEDED.value,
+                current_exposure,
+                self.max_total_exposure,
+            )
             return AIDecision.reject(
                 f"Trade blocked: {RiskViolation.EXPOSURE_EXCEEDED.value} "
                 f"(current exposure: {current_exposure:.2f}, "
@@ -102,14 +130,27 @@ class RiskManager:
 
         # Reduce size if it would exceed remaining capacity
         if adjusted_size > remaining_capacity:
+            logger.warning(
+                "Risk adjustment: reducing size from {:.4f} to {:.4f} "
+                "(remaining capacity: {:.4f})",
+                adjusted_size,
+                remaining_capacity,
+                remaining_capacity,
+            )
             adjusted_size = remaining_capacity
 
         # Return modified decision if size was adjusted
         if adjusted_size != decision.size:
+            logger.info(
+                "Risk validation complete: size adjusted from {:.4f} to {:.4f}",
+                decision.size,
+                adjusted_size,
+            )
             return replace(
                 decision,
                 size=adjusted_size,
                 reasoning=f"{decision.reasoning} [Size adjusted by risk manager]",
             )
 
+        logger.info("Risk validation complete: decision approved without changes")
         return decision
