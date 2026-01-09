@@ -144,7 +144,8 @@ def wallets_list() -> None:
 
     console.print(table)
     console.print(
-        "[dim]No wallets tracked. Use 'polymind wallets add <address>' to add one.[/dim]"
+        "[dim]No wallets tracked. "
+        "Use 'polymind wallets add <address>' to add one.[/dim]"
     )
 
 
