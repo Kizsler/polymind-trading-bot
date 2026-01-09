@@ -20,7 +20,11 @@ class Cache:
 
     async def close(self) -> None:
         """Close Redis connection."""
-        await self.redis.aclose()
+        try:
+            await self.redis.aclose()
+        except RuntimeError:
+            # Ignore "Event loop is closed" on Windows
+            pass
 
     # Generic operations
 
