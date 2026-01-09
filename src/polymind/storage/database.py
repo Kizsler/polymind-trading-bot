@@ -3,14 +3,16 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import selectinload
 
 from polymind.config.settings import Settings
-from polymind.storage.models import Base
+from polymind.storage.models import Base, Trade, Wallet
 
 
 class Database:
@@ -54,3 +56,56 @@ class Database:
     async def close(self) -> None:
         """Close the database connection."""
         await self.engine.dispose()
+
+    async def get_all_wallets(self) -> list[Wallet]:
+        """Get all tracked wallets with their metrics."""
+        async with self.session() as session:
+            result = await session.execute(
+                select(Wallet).options(selectinload(Wallet.metrics))
+            )
+            return list(result.scalars().all())
+
+    async def add_wallet(self, address: str, alias: str | None = None) -> Wallet:
+        """Add a new wallet to track."""
+        async with self.session() as session:
+            wallet = Wallet(address=address, alias=alias)
+            session.add(wallet)
+            await session.flush()
+            await session.refresh(wallet)
+            return wallet
+
+    async def remove_wallet(self, address: str) -> bool:
+        """Remove a wallet by address."""
+        async with self.session() as session:
+            result = await session.execute(
+                select(Wallet).where(Wallet.address == address)
+            )
+            wallet = result.scalar_one_or_none()
+            if wallet:
+                await session.delete(wallet)
+                return True
+            return False
+
+    async def update_wallet(self, address: str, **kwargs) -> bool:
+        """Update wallet fields."""
+        async with self.session() as session:
+            result = await session.execute(
+                select(Wallet).where(Wallet.address == address)
+            )
+            wallet = result.scalar_one_or_none()
+            if wallet:
+                for key, value in kwargs.items():
+                    setattr(wallet, key, value)
+                return True
+            return False
+
+    async def get_recent_trades(self, limit: int = 10) -> list[Trade]:
+        """Get recent trades with wallet info."""
+        async with self.session() as session:
+            result = await session.execute(
+                select(Trade)
+                .options(selectinload(Trade.wallet))
+                .order_by(Trade.detected_at.desc())
+                .limit(limit)
+            )
+            return list(result.scalars().all())

@@ -23,21 +23,24 @@ def test_cli_context_has_required_attributes() -> None:
 @pytest.mark.asyncio
 async def test_get_context_creates_connections() -> None:
     """get_context should create database and cache connections."""
-    with patch("polymind.interfaces.cli.context.Database") as mock_db_class:
-        with patch("polymind.interfaces.cli.context.create_cache") as mock_cache:
-            with patch("polymind.interfaces.cli.context.load_settings") as mock_settings:
-                mock_db_class.return_value = MagicMock()
-                mock_cache.return_value = AsyncMock()
-                mock_settings.return_value = MagicMock()
-                mock_settings.return_value.redis = MagicMock()
-                mock_settings.return_value.redis.url = "redis://localhost"
+    with (
+        patch("polymind.interfaces.cli.context.Database") as mock_db_class,
+        patch("polymind.interfaces.cli.context.create_cache") as mock_cache,
+        patch("polymind.interfaces.cli.context.load_settings") as mock_settings,
+    ):
+        mock_db_class.return_value = MagicMock()
+        mock_cache.return_value = AsyncMock()
+        mock_settings.return_value = MagicMock()
+        mock_settings.return_value.redis = MagicMock()
+        mock_settings.return_value.redis.url = "redis://localhost"
 
-                # Reset global context
-                import polymind.interfaces.cli.context as ctx_module
-                ctx_module._context = None
+        # Reset global context
+        import polymind.interfaces.cli.context as ctx_module
 
-                context = await get_context()
+        ctx_module._context = None
 
-                assert context is not None
-                mock_settings.assert_called_once()
-                mock_db_class.assert_called_once()
+        context = await get_context()
+
+        assert context is not None
+        mock_settings.assert_called_once()
+        mock_db_class.assert_called_once()
