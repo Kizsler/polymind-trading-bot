@@ -1,9 +1,8 @@
 """Application settings with Pydantic validation."""
 
-from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator, computed_field
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,15 +11,27 @@ class RiskConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="POLYMIND_RISK_")
 
-    max_daily_loss: float = Field(default=500.0, description="Maximum daily loss in USD")
-    max_exposure_per_market: float = Field(default=200.0, description="Max exposure per market")
-    max_exposure_per_wallet: float = Field(default=500.0, description="Max exposure per wallet")
+    max_daily_loss: float = Field(
+        default=500.0, description="Maximum daily loss in USD"
+    )
+    max_exposure_per_market: float = Field(
+        default=200.0, description="Max exposure per market"
+    )
+    max_exposure_per_wallet: float = Field(
+        default=500.0, description="Max exposure per wallet"
+    )
     max_total_exposure: float = Field(default=2000.0, description="Max total exposure")
     max_single_trade: float = Field(default=100.0, description="Max single trade size")
     max_slippage: float = Field(default=0.03, description="Max slippage (3%)")
 
-    @field_validator("max_daily_loss", "max_exposure_per_market", "max_exposure_per_wallet",
-                     "max_total_exposure", "max_single_trade", mode="before")
+    @field_validator(
+        "max_daily_loss",
+        "max_exposure_per_market",
+        "max_exposure_per_wallet",
+        "max_total_exposure",
+        "max_single_trade",
+        mode="before",
+    )
     @classmethod
     def validate_positive(cls, v: float) -> float:
         if v <= 0:
@@ -39,7 +50,7 @@ class DatabaseConfig(BaseSettings):
     user: str = Field(default="postgres")
     password: str = Field(default="postgres")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def url(self) -> str:
         return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.name}"
@@ -54,7 +65,7 @@ class RedisConfig(BaseSettings):
     port: int = Field(default=6379)
     db: int = Field(default=0)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def url(self) -> str:
         return f"redis://{self.host}:{self.port}/{self.db}"

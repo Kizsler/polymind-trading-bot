@@ -1,5 +1,5 @@
 """Configuration module."""
 
-from polymind.config.settings import Settings, RiskConfig, DatabaseConfig
+from polymind.config.settings import DatabaseConfig, RiskConfig, Settings
 
 __all__ = ["Settings", "RiskConfig", "DatabaseConfig"]
