@@ -44,6 +44,8 @@ async def test_bot_runner_stop_closes_connections() -> None:
     runner = BotRunner.__new__(BotRunner)
     runner._db = AsyncMock()
     runner._cache = AsyncMock()
+    runner._data_api = AsyncMock()
+    runner._monitor = AsyncMock()
     runner._shutdown_event = asyncio.Event()
     runner._stopping = False
 
@@ -79,6 +81,8 @@ async def test_bot_runner_stop_handles_none_connections() -> None:
     runner = BotRunner.__new__(BotRunner)
     runner._db = None
     runner._cache = None
+    runner._data_api = None
+    runner._monitor = None
     runner._shutdown_event = asyncio.Event()
     runner._stopping = False
 
@@ -97,6 +101,8 @@ async def test_bot_runner_stop_prevents_double_stop() -> None:
     runner = BotRunner.__new__(BotRunner)
     runner._db = AsyncMock()
     runner._cache = AsyncMock()
+    runner._data_api = AsyncMock()
+    runner._monitor = AsyncMock()
     runner._shutdown_event = asyncio.Event()
     runner._stopping = False
 
