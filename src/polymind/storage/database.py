@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
@@ -109,3 +110,32 @@ class Database:
                 .limit(limit)
             )
             return list(result.scalars().all())
+
+    async def get_wallet_metrics(self, wallet_address: str) -> dict[str, Any] | None:
+        """Get performance metrics for a wallet.
+
+        Args:
+            wallet_address: The wallet address to get metrics for.
+
+        Returns:
+            Dictionary with win_rate, avg_roi, total_trades, recent_performance
+            or None if wallet not found.
+        """
+        async with self.session() as session:
+            result = await session.execute(
+                select(Wallet)
+                .options(selectinload(Wallet.metrics))
+                .where(Wallet.address == wallet_address.lower())
+            )
+            wallet = result.scalar_one_or_none()
+
+            if not wallet or not wallet.metrics:
+                return None
+
+            metrics = wallet.metrics
+            return {
+                "win_rate": metrics.win_rate,
+                "avg_roi": metrics.avg_roi,
+                "total_trades": metrics.total_trades,
+                "recent_performance": metrics.total_pnl / max(metrics.total_trades, 1) if metrics.total_trades > 0 else 0.0,
+            }

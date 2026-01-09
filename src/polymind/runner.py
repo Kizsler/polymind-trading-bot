@@ -4,8 +4,16 @@ import asyncio
 import sys
 
 from polymind.config.settings import Settings, load_settings
+from polymind.core.brain.claude import ClaudeClient
+from polymind.core.brain.context import DecisionContextBuilder
+from polymind.core.brain.decision import AIDecision
+from polymind.core.brain.orchestrator import DecisionBrain
+from polymind.core.execution.paper import ExecutionResult, PaperExecutor
+from polymind.core.risk.manager import RiskManager
 from polymind.data.models import TradeSignal
+from polymind.data.polymarket.client import PolymarketClient
 from polymind.data.polymarket.data_api import DataAPIClient
+from polymind.data.polymarket.markets import MarketDataService
 from polymind.services.monitor import WalletMonitorService
 from polymind.storage.cache import Cache, create_cache
 from polymind.storage.database import Database
@@ -24,27 +32,97 @@ class BotRunner:
         self._cache: Cache | None = None
         self._data_api: DataAPIClient | None = None
         self._monitor: WalletMonitorService | None = None
+        self._brain: DecisionBrain | None = None
         self._shutdown_event: asyncio.Event = asyncio.Event()
         self._stopping: bool = False
 
     async def _on_trade_signal(self, signal: TradeSignal) -> None:
         """Handle a detected trade signal.
 
-        This is called when a tracked wallet makes a trade.
-        For now, just log it. Later this will route to the DecisionBrain.
+        Routes signals to the DecisionBrain for AI evaluation,
+        or logs them if the brain is not configured.
 
         Args:
             signal: The detected trade signal.
         """
         logger.info(
-            "Trade detected! wallet={} market={} side={} size=${:.2f}",
+            "Trade detected: wallet={} market={} side={} size=${:.2f}",
             signal.wallet[:10],
             signal.market_id[:20] if signal.market_id else "unknown",
             signal.side,
             signal.size,
         )
-        # TODO: Route to DecisionBrain for AI evaluation
-        # decision = await self._brain.process(signal)
+
+        if self._brain:
+            try:
+                result = await self._brain.process(signal)
+                if result.success:
+                    logger.info(
+                        "Trade executed: size=${:.2f} price={:.4f} paper={}",
+                        result.executed_size,
+                        result.executed_price,
+                        result.paper_mode,
+                    )
+                else:
+                    logger.info("Trade not executed: {}", result.message)
+            except Exception as e:
+                logger.error("Error processing signal: {}", str(e))
+        else:
+            logger.warning("DecisionBrain not configured - signal logged but not processed")
+
+    def _setup_brain(self) -> DecisionBrain | None:
+        """Set up the DecisionBrain with all dependencies.
+
+        Returns:
+            Configured DecisionBrain or None if API key not set.
+        """
+        if not self._settings or not self._settings.claude.api_key:
+            logger.warning(
+                "Claude API key not configured - AI decisions disabled. "
+                "Set POLYMIND_CLAUDE_API_KEY to enable."
+            )
+            return None
+
+        # Create Claude client
+        claude_client = ClaudeClient(
+            api_key=self._settings.claude.api_key,
+            model=self._settings.claude.model,
+            max_tokens=self._settings.claude.max_tokens,
+        )
+
+        # Create market data service (for context building)
+        polymarket_client = PolymarketClient(settings=self._settings)
+        market_service = MarketDataService(
+            client=polymarket_client,
+            cache=self._cache,
+        )
+
+        # Create context builder
+        context_builder = DecisionContextBuilder(
+            cache=self._cache,
+            market_service=market_service,
+            db=self._db,
+            max_daily_loss=self._settings.risk.max_daily_loss,
+        )
+
+        # Create risk manager
+        risk_manager = RiskManager(
+            cache=self._cache,
+            max_daily_loss=self._settings.risk.max_daily_loss,
+            max_total_exposure=self._settings.risk.max_total_exposure,
+            max_single_trade=self._settings.risk.max_single_trade,
+        )
+
+        # Create paper executor
+        executor = PaperExecutor(cache=self._cache)
+
+        # Assemble the brain
+        return DecisionBrain(
+            context_builder=context_builder,
+            claude_client=claude_client,
+            risk_manager=risk_manager,
+            executor=executor,
+        )
 
     async def start(self) -> None:
         """Start the bot and initialize all components."""
@@ -78,6 +156,11 @@ class BotRunner:
                 poll_interval=5.0,
             )
             logger.info("Wallet monitor initialized")
+
+            # Initialize decision brain (may be None if API key not set)
+            self._brain = self._setup_brain()
+            if self._brain:
+                logger.info("Decision brain initialized with Claude AI")
 
             # Set initial mode
             await self._cache.set_mode(self._settings.mode)
