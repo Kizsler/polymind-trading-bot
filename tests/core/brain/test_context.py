@@ -39,9 +39,9 @@ class TestDecisionContext:
 
         # Verify top-level structure
         assert "signal" in result
-        assert "wallet" in result
-        assert "market" in result
-        assert "risk" in result
+        assert "wallet_metrics" in result
+        assert "market_data" in result
+        assert "risk_state" in result
 
         # Verify signal section
         expected_wallet = "0x1234567890abcdef1234567890abcdef12345678"
@@ -51,20 +51,20 @@ class TestDecisionContext:
         assert result["signal"]["size"] == 250.0
         assert result["signal"]["price"] == 0.65
 
-        # Verify wallet section
-        assert result["wallet"]["win_rate"] == 0.72
-        assert result["wallet"]["avg_roi"] == 0.15
-        assert result["wallet"]["total_trades"] == 100
-        assert result["wallet"]["recent_performance"] == 0.08
+        # Verify wallet_metrics section
+        assert result["wallet_metrics"]["win_rate"] == 0.72
+        assert result["wallet_metrics"]["avg_roi"] == 0.15
+        assert result["wallet_metrics"]["total_trades"] == 100
+        assert result["wallet_metrics"]["recent_performance"] == 0.08
 
-        # Verify market section
-        assert result["market"]["liquidity"] == 50000.0
-        assert result["market"]["spread"] == 0.02
+        # Verify market_data section
+        assert result["market_data"]["liquidity"] == 50000.0
+        assert result["market_data"]["spread"] == 0.02
 
-        # Verify risk section
-        assert result["risk"]["daily_pnl"] == -50.0
-        assert result["risk"]["open_exposure"] == 1000.0
-        assert result["risk"]["max_daily_loss"] == 500.0
+        # Verify risk_state section
+        assert result["risk_state"]["daily_pnl"] == -50.0
+        assert result["risk_state"]["open_exposure"] == 1000.0
+        assert result["risk_state"]["max_daily_loss"] == 500.0
 
     def test_decision_context_to_dict_with_zero_values(self):
         """Context with zero values should still produce valid dict."""
@@ -89,9 +89,9 @@ class TestDecisionContext:
 
         # All sections should exist even with zero values
         assert result["signal"]["size"] == 0.0
-        assert result["wallet"]["total_trades"] == 0
-        assert result["market"]["liquidity"] == 0.0
-        assert result["risk"]["daily_pnl"] == 0.0
+        assert result["wallet_metrics"]["total_trades"] == 0
+        assert result["market_data"]["liquidity"] == 0.0
+        assert result["risk_state"]["daily_pnl"] == 0.0
 
 
 class TestDecisionContextBuilder:

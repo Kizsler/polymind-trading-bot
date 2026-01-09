@@ -81,9 +81,9 @@ class DecisionContext:
             Dictionary with nested structure matching design spec format:
             {
                 "signal": {...},
-                "wallet": {...},
-                "market": {...},
-                "risk": {...}
+                "wallet_metrics": {...},
+                "market_data": {...},
+                "risk_state": {...}
             }
         """
         return {
@@ -94,17 +94,17 @@ class DecisionContext:
                 "size": self.signal_size,
                 "price": self.signal_price,
             },
-            "wallet": {
+            "wallet_metrics": {
                 "win_rate": self.wallet_win_rate,
                 "avg_roi": self.wallet_avg_roi,
                 "total_trades": self.wallet_total_trades,
                 "recent_performance": self.wallet_recent_performance,
             },
-            "market": {
+            "market_data": {
                 "liquidity": self.market_liquidity,
                 "spread": self.market_spread,
             },
-            "risk": {
+            "risk_state": {
                 "daily_pnl": self.risk_daily_pnl,
                 "open_exposure": self.risk_open_exposure,
                 "max_daily_loss": self.risk_max_daily_loss,
