@@ -41,6 +41,7 @@ htmlcov/
 .env
 .env.local
 *.local.yaml
+*.pem
 
 # Logs
 *.log
