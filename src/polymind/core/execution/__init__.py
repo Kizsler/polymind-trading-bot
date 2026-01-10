@@ -1,6 +1,13 @@
 """Execution engine module for paper and live trading."""
 
-__all__ = ["ExecutionResult", "PaperExecutor", "SlippageGuard", "SlippageExceededError"]
+__all__ = [
+    "ExecutionResult",
+    "PaperExecutor",
+    "SlippageGuard",
+    "SlippageExceededError",
+    "Order",
+    "OrderStatus",
+]
 
 
 def __getattr__(name: str):
@@ -11,4 +18,7 @@ def __getattr__(name: str):
     if name in ("SlippageGuard", "SlippageExceededError"):
         from polymind.core.execution.slippage import SlippageGuard, SlippageExceededError
         return {"SlippageGuard": SlippageGuard, "SlippageExceededError": SlippageExceededError}[name]
+    if name in ("Order", "OrderStatus"):
+        from polymind.core.execution.order import Order, OrderStatus
+        return {"Order": Order, "OrderStatus": OrderStatus}[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
