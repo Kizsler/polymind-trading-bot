@@ -7,6 +7,7 @@ __all__ = [
     "SlippageExceededError",
     "Order",
     "OrderStatus",
+    "OrderManager",
 ]
 
 
@@ -21,4 +22,7 @@ def __getattr__(name: str):
     if name in ("Order", "OrderStatus"):
         from polymind.core.execution.order import Order, OrderStatus
         return {"Order": Order, "OrderStatus": OrderStatus}[name]
+    if name == "OrderManager":
+        from polymind.core.execution.manager import OrderManager
+        return OrderManager
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
