@@ -18,33 +18,61 @@ import {
   AlertCircle,
   Bell,
   Bot,
+  CheckCircle,
   DollarSign,
   Key,
+  Loader2,
   Save,
   Shield,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { api, fetcher, Settings } from "@/lib/api";
 
 export default function SettingsPage() {
-  // Trading settings
-  const [tradingMode, setTradingMode] = useState("paper");
-  const [maxPositionSize, setMaxPositionSize] = useState("100");
-  const [maxDailyExposure, setMaxDailyExposure] = useState("2000");
-  const [minProbability, setMinProbability] = useState("0.10");
-  const [maxProbability, setMaxProbability] = useState("0.90");
-  const [autoTrade, setAutoTrade] = useState(true);
+  // Fetch settings from API
+  const { data: settings, error, isLoading, mutate } = useSWR<Settings>(
+    "/settings",
+    fetcher
+  );
 
-  // AI settings
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [confidenceThreshold, setConfidenceThreshold] = useState("0.70");
-  const [reasoningModel, setReasoningModel] = useState("claude-sonnet");
+  // Local state for form (initialized from API data)
+  const [formData, setFormData] = useState<Partial<Settings>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Notification settings
+  // Notification settings (local only for now)
   const [discordEnabled, setDiscordEnabled] = useState(false);
   const [notifyOnTrade, setNotifyOnTrade] = useState(true);
   const [notifyOnSkip, setNotifyOnSkip] = useState(false);
   const [notifyOnError, setNotifyOnError] = useState(true);
+
+  // Sync form data when settings load
+  useEffect(() => {
+    if (settings) {
+      setFormData(settings);
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      await api.updateSettings(formData);
+      await mutate();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateField = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <DashboardLayout>
@@ -56,6 +84,35 @@ export default function SettingsPage() {
             Configure your trading bot parameters and preferences
           </p>
         </div>
+
+        {/* Error State */}
+        {error && (
+          <Card className="mb-8 bg-loss/10 border-loss/30">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-loss" />
+                <div>
+                  <p className="font-medium text-loss">API Connection Error</p>
+                  <p className="text-sm text-muted-foreground">
+                    Unable to load settings. Make sure the API server is running.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {isLoading && !settings && (
+          <Card className="mb-8 bg-secondary/50 border-border">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <p className="text-muted-foreground">Loading settings...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="trading" className="space-y-6">
           <TabsList className="bg-secondary">
@@ -102,7 +159,10 @@ export default function SettingsPage() {
                         Paper trading uses simulated funds
                       </p>
                     </div>
-                    <Select value={tradingMode} onValueChange={setTradingMode}>
+                    <Select
+                      value={formData.trading_mode || "paper"}
+                      onValueChange={(value) => updateField("trading_mode", value)}
+                    >
                       <SelectTrigger className="w-40 bg-background">
                         <SelectValue />
                       </SelectTrigger>
@@ -123,7 +183,7 @@ export default function SettingsPage() {
                     </Select>
                   </div>
 
-                  {tradingMode === "live" && (
+                  {formData.trading_mode === "live" && (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-loss/10 border border-loss/30">
                       <AlertCircle className="h-4 w-4 text-loss" />
                       <p className="text-sm text-loss">
@@ -139,7 +199,10 @@ export default function SettingsPage() {
                         Automatically execute AI-approved trades
                       </p>
                     </div>
-                    <Switch checked={autoTrade} onCheckedChange={setAutoTrade} />
+                    <Switch
+                      checked={formData.auto_trade ?? true}
+                      onCheckedChange={(checked) => updateField("auto_trade", checked)}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -159,8 +222,8 @@ export default function SettingsPage() {
                       </label>
                       <Input
                         type="number"
-                        value={maxPositionSize}
-                        onChange={(e) => setMaxPositionSize(e.target.value)}
+                        value={formData.max_position_size ?? 100}
+                        onChange={(e) => updateField("max_position_size", parseFloat(e.target.value))}
                         className="mt-1.5 bg-background"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -173,8 +236,8 @@ export default function SettingsPage() {
                       </label>
                       <Input
                         type="number"
-                        value={maxDailyExposure}
-                        onChange={(e) => setMaxDailyExposure(e.target.value)}
+                        value={formData.max_daily_exposure ?? 2000}
+                        onChange={(e) => updateField("max_daily_exposure", parseFloat(e.target.value))}
                         className="mt-1.5 bg-background"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -208,44 +271,30 @@ export default function SettingsPage() {
                         Use AI to evaluate each trade before copying
                       </p>
                     </div>
-                    <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+                    <Switch
+                      checked={formData.ai_enabled ?? true}
+                      onCheckedChange={(checked) => updateField("ai_enabled", checked)}
+                    />
                   </div>
 
-                  {aiEnabled && (
-                    <>
-                      <div className="pt-4 border-t border-border">
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Reasoning Model
-                        </label>
-                        <Select value={reasoningModel} onValueChange={setReasoningModel}>
-                          <SelectTrigger className="mt-1.5 bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="claude-sonnet">Claude Sonnet (Fast)</SelectItem>
-                            <SelectItem value="claude-opus">Claude Opus (Best)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Confidence Threshold
-                        </label>
-                        <Input
-                          type="number"
-                          step="0.05"
-                          min="0"
-                          max="1"
-                          value={confidenceThreshold}
-                          onChange={(e) => setConfidenceThreshold(e.target.value)}
-                          className="mt-1.5 bg-background"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Minimum AI confidence (0-1) required to copy a trade
-                        </p>
-                      </div>
-                    </>
+                  {formData.ai_enabled && (
+                    <div className="pt-4 border-t border-border">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Confidence Threshold
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={formData.confidence_threshold ?? 0.70}
+                        onChange={(e) => updateField("confidence_threshold", parseFloat(e.target.value))}
+                        className="mt-1.5 bg-background"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Minimum AI confidence (0-1) required to copy a trade
+                      </p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -276,8 +325,8 @@ export default function SettingsPage() {
                         step="0.05"
                         min="0"
                         max="1"
-                        value={minProbability}
-                        onChange={(e) => setMinProbability(e.target.value)}
+                        value={formData.min_probability ?? 0.10}
+                        onChange={(e) => updateField("min_probability", parseFloat(e.target.value))}
                         className="mt-1.5 bg-background"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -293,8 +342,8 @@ export default function SettingsPage() {
                         step="0.05"
                         min="0"
                         max="1"
-                        value={maxProbability}
-                        onChange={(e) => setMaxProbability(e.target.value)}
+                        value={formData.max_probability ?? 0.90}
+                        onChange={(e) => updateField("max_probability", parseFloat(e.target.value))}
                         className="mt-1.5 bg-background"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -340,7 +389,8 @@ export default function SettingsPage() {
                       </label>
                       <Input
                         type="number"
-                        defaultValue="500"
+                        value={formData.daily_loss_limit ?? 500}
+                        onChange={(e) => updateField("daily_loss_limit", parseFloat(e.target.value))}
                         className="mt-1.5 bg-background"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -444,7 +494,7 @@ export default function SettingsPage() {
                   API Configuration
                 </CardTitle>
                 <CardDescription>
-                  Manage your API keys and credentials
+                  API keys are configured via environment variables for security
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -455,50 +505,33 @@ export default function SettingsPage() {
                   <div className="flex gap-2 mt-1.5">
                     <Input
                       type="password"
-                      placeholder="sk-ant-..."
+                      placeholder="Configured via ANTHROPIC_API_KEY"
+                      disabled
                       className="bg-background font-mono"
                     />
                     <Badge variant="outline" className="text-profit border-profit/30">
-                      Connected
+                      Env Var
                     </Badge>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-border">
                   <label className="text-sm font-medium text-muted-foreground">
-                    Polymarket API Key (Optional)
+                    Polymarket API Key
                   </label>
                   <div className="flex gap-2 mt-1.5">
                     <Input
                       type="password"
-                      placeholder="Enter API key for live trading"
+                      placeholder="Configured via POLYMARKET_API_KEY"
+                      disabled
                       className="bg-background font-mono"
                     />
                     <Badge variant="outline" className="text-muted-foreground">
-                      Not Set
+                      Env Var
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Required for live trading mode
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Polymarket Private Key
-                  </label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input
-                      type="password"
-                      placeholder="0x..."
-                      className="bg-background font-mono"
-                    />
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Not Set
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Your wallet private key for executing trades
+                    Set in .env file for security
                   </p>
                 </div>
               </CardContent>
@@ -507,10 +540,25 @@ export default function SettingsPage() {
         </Tabs>
 
         {/* Save Button */}
-        <div className="mt-8 flex justify-end">
-          <Button className="gap-2">
-            <Save className="h-4 w-4" />
-            Save Settings
+        <div className="mt-8 flex justify-end gap-3">
+          {saveSuccess && (
+            <div className="flex items-center gap-2 text-profit">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-sm">Settings saved</span>
+            </div>
+          )}
+          <Button className="gap-2" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save Settings
+              </>
+            )}
           </Button>
         </div>
       </div>

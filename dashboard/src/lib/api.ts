@@ -49,6 +49,18 @@ export interface RiskLimits {
   max_slippage: number;
 }
 
+export interface Settings {
+  trading_mode: string;
+  auto_trade: boolean;
+  max_position_size: number;
+  max_daily_exposure: number;
+  ai_enabled: boolean;
+  confidence_threshold: number;
+  min_probability: number;
+  max_probability: number;
+  daily_loss_limit: number;
+}
+
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
@@ -88,15 +100,15 @@ export const api = {
       body: JSON.stringify({ mode }),
     }),
 
-  // Trades (these would need to be added to the backend)
+  // Trades
   getTrades: (limit?: number) => fetchAPI<Trade[]>(`/trades?limit=${limit || 50}`),
 
-  // Risk
-  getRiskLimits: () => fetchAPI<RiskLimits>('/risk/limits'),
-  setRiskLimits: (limits: Partial<RiskLimits>) =>
-    fetchAPI<RiskLimits>('/risk/limits', {
+  // Settings
+  getSettings: () => fetchAPI<Settings>('/settings'),
+  updateSettings: (settings: Partial<Settings>) =>
+    fetchAPI<Settings>('/settings', {
       method: 'PUT',
-      body: JSON.stringify(limits),
+      body: JSON.stringify(settings),
     }),
 };
 

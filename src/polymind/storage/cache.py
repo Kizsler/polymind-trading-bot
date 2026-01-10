@@ -90,6 +90,47 @@ class Cache:
         """Set trading mode."""
         await self.redis.set(f"{self.PREFIX_SYSTEM}:mode", mode)
 
+    # Settings
+
+    async def get_settings(self) -> dict:
+        """Get all bot settings."""
+        defaults = {
+            "trading_mode": "paper",
+            "auto_trade": True,
+            "max_position_size": 100.0,
+            "max_daily_exposure": 2000.0,
+            "ai_enabled": True,
+            "confidence_threshold": 0.70,
+            "min_probability": 0.10,
+            "max_probability": 0.90,
+            "daily_loss_limit": 500.0,
+        }
+
+        settings = {}
+        for key, default in defaults.items():
+            value = await self.redis.get(f"{self.PREFIX_SYSTEM}:settings:{key}")
+            if value is None:
+                settings[key] = default
+            else:
+                # Parse based on default type
+                if isinstance(default, bool):
+                    settings[key] = value.decode().lower() == "true"
+                elif isinstance(default, float):
+                    settings[key] = float(value)
+                else:
+                    settings[key] = value.decode() if isinstance(value, bytes) else value
+
+        return settings
+
+    async def update_settings(self, updates: dict) -> dict:
+        """Update bot settings."""
+        for key, value in updates.items():
+            await self.redis.set(
+                f"{self.PREFIX_SYSTEM}:settings:{key}",
+                str(value).lower() if isinstance(value, bool) else str(value),
+            )
+        return await self.get_settings()
+
     # Wallet state
 
     async def set_wallet_last_trade(self, address: str, trade_id: int) -> None:
