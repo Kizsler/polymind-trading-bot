@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@/components/dashboard-layout";
+import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/select";
 import {
   AlertCircle,
+  AlertOctagon,
   Bell,
   Bot,
   CheckCircle,
   DollarSign,
   Key,
   Loader2,
+  Play,
   Save,
   Shield,
   Zap,
@@ -47,6 +49,41 @@ export default function SettingsPage() {
   const [notifyOnTrade, setNotifyOnTrade] = useState(true);
   const [notifyOnSkip, setNotifyOnSkip] = useState(false);
   const [notifyOnError, setNotifyOnError] = useState(true);
+
+  // Emergency stop state
+  const [isEmergencyStopped, setIsEmergencyStopped] = useState(false);
+  const [isStopLoading, setIsStopLoading] = useState(false);
+
+  // Check emergency stop status on load
+  useEffect(() => {
+    api.getStatus().then((status) => {
+      setIsEmergencyStopped(status.emergency_stop ?? false);
+    }).catch(() => {});
+  }, []);
+
+  const handleEmergencyStop = async () => {
+    setIsStopLoading(true);
+    try {
+      await api.emergencyStop();
+      setIsEmergencyStopped(true);
+    } catch (err) {
+      console.error("Failed to activate emergency stop:", err);
+    } finally {
+      setIsStopLoading(false);
+    }
+  };
+
+  const handleResumeTrading = async () => {
+    setIsStopLoading(true);
+    try {
+      await api.resumeTrading();
+      setIsEmergencyStopped(false);
+    } catch (err) {
+      console.error("Failed to resume trading:", err);
+    } finally {
+      setIsStopLoading(false);
+    }
+  };
 
   // Sync form data when settings load
   useEffect(() => {
@@ -75,8 +112,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
+    <ThreeColumnLayout>
+      <div>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -304,6 +341,62 @@ export default function SettingsPage() {
           {/* Risk Limits */}
           <TabsContent value="risk">
             <div className="grid gap-6">
+              {/* Emergency Stop Card */}
+              <Card className={`border-2 ${isEmergencyStopped ? 'bg-loss/10 border-loss' : 'bg-card border-border'}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertOctagon className={`h-5 w-5 ${isEmergencyStopped ? 'text-loss' : 'text-primary'}`} />
+                    Emergency Stop
+                  </CardTitle>
+                  <CardDescription>
+                    Instantly halt all trading activity
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">
+                        {isEmergencyStopped ? 'Trading is STOPPED' : 'Trading is active'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {isEmergencyStopped
+                          ? 'All trading is halted. Click resume to continue.'
+                          : 'Click the button to immediately stop all trading.'}
+                      </p>
+                    </div>
+                    {isEmergencyStopped ? (
+                      <Button
+                        variant="outline"
+                        className="gap-2 border-profit text-profit hover:bg-profit/10"
+                        onClick={handleResumeTrading}
+                        disabled={isStopLoading}
+                      >
+                        {isStopLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        Resume Trading
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        className="gap-2"
+                        onClick={handleEmergencyStop}
+                        disabled={isStopLoading}
+                      >
+                        {isStopLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <AlertOctagon className="h-4 w-4" />
+                        )}
+                        Emergency Stop
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -562,6 +655,6 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
-    </DashboardLayout>
+    </ThreeColumnLayout>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@/components/dashboard-layout";
+import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import { api, fetcher } from "@/lib/api";
 
@@ -37,6 +38,7 @@ interface WalletData {
 }
 
 export default function WalletsPage() {
+  const router = useRouter();
   const [newWalletAddress, setNewWalletAddress] = useState("");
   const [newWalletAlias, setNewWalletAlias] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -81,8 +83,8 @@ export default function WalletsPage() {
     : 0;
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
+    <ThreeColumnLayout>
+      <div>
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -217,7 +219,11 @@ export default function WalletsPage() {
         {/* Wallets Grid */}
         <div className="grid gap-4 md:grid-cols-2">
           {wallets?.map((wallet) => (
-            <Card key={wallet.id} className="bg-card border-border">
+            <Card
+              key={wallet.id}
+              className="bg-card border-border cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => router.push(`/wallets/${wallet.address}`)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -315,6 +321,6 @@ export default function WalletsPage() {
           ))}
         </div>
       </div>
-    </DashboardLayout>
+    </ThreeColumnLayout>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardLayout } from "@/components/dashboard-layout";
+import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -108,8 +108,8 @@ export default function ArbitragePage() {
   const totalSpread = opportunities?.reduce((acc, o) => acc + o.spread, 0) || 0;
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
+    <ThreeColumnLayout>
+      <div>
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -381,6 +381,6 @@ export default function ArbitragePage() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </ThreeColumnLayout>
   );
 }
