@@ -67,7 +67,12 @@
       "Bash(git -C \"C:\\\\Users\\\\kizsl\\\\Desktop\\\\Projects\\\\PolyMind-Trading-Bot\" status)",
       "Bash(git -C \"C:\\\\Users\\\\kizsl\\\\Desktop\\\\Projects\\\\PolyMind-Trading-Bot\" log --oneline -5)",
       "Bash(git -C \"C:\\\\Users\\\\kizsl\\\\Desktop\\\\Projects\\\\PolyMind-Trading-Bot\" add dashboard/src/app/algo/)",
-      "Bash(git -C \"C:\\\\Users\\\\kizsl\\\\Desktop\\\\Projects\\\\PolyMind-Trading-Bot\" commit -m \"$\\(cat <<''EOF''\nfeat\\(dashboard\\): add Algo page for AI decision history\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git -C \"C:\\\\Users\\\\kizsl\\\\Desktop\\\\Projects\\\\PolyMind-Trading-Bot\" commit -m \"$\\(cat <<''EOF''\nfeat\\(dashboard\\): add Algo page for AI decision history\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(uvicorn:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot"
     ]
   }
 }
