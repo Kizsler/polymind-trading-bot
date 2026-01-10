@@ -12,6 +12,7 @@ __all__ = [
     "LiveExecutorError",
     "SafetyGuard",
     "LiveModeBlockedError",
+    "ModeAwareExecutor",
 ]
 
 
@@ -35,4 +36,7 @@ def __getattr__(name: str):
     if name in ("SafetyGuard", "LiveModeBlockedError"):
         from polymind.core.execution.safety import SafetyGuard, LiveModeBlockedError
         return {"SafetyGuard": SafetyGuard, "LiveModeBlockedError": LiveModeBlockedError}[name]
+    if name == "ModeAwareExecutor":
+        from polymind.core.execution.mode_executor import ModeAwareExecutor
+        return ModeAwareExecutor
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
