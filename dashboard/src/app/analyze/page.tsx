@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { PnLChart, EquityChart } from "@/components/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Home,
   ChevronRight,
@@ -11,41 +12,124 @@ import {
   Target,
   Percent,
 } from "lucide-react";
-
-// Generate sample data
-const generatePnLData = () => {
-  const data = [];
-  const now = new Date();
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-      pnl: Math.random() * 15 - 5,
-    });
-  }
-  return data;
-};
-
-const generateEquityData = () => {
-  const data = [];
-  const now = new Date();
-  let equity = 1000;
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    equity += Math.random() * 80 - 25;
-    data.push({
-      date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-      equity: Math.max(equity, 500),
-    });
-  }
-  return data;
-};
+import useSWR from "swr";
+import { fetcher, Trade } from "@/lib/api";
 
 export default function AnalyzePage() {
-  const pnlData = generatePnLData();
-  const equityData = generateEquityData();
+  const { data: trades } = useSWR<Trade[]>("/trades?limit=500", fetcher, { refreshInterval: 30000 });
+
+  // Compute stats from real trades
+  const stats = useMemo(() => {
+    if (!trades || trades.length === 0) {
+      return {
+        totalReturn: 0,
+        winRate: 0,
+        profitFactor: 0,
+        maxDrawdown: 0,
+      };
+    }
+
+    const closedTrades = trades.filter((t) => t.pnl !== undefined && t.pnl !== null);
+    const wins = closedTrades.filter((t) => (t.pnl || 0) > 0);
+    const losses = closedTrades.filter((t) => (t.pnl || 0) < 0);
+
+    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalWins = wins.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalLosses = Math.abs(losses.reduce((sum, t) => sum + (t.pnl || 0), 0));
+
+    // Calculate max drawdown from equity curve
+    let peak = 1000;
+    let maxDD = 0;
+    let equity = 1000;
+    closedTrades.forEach((t) => {
+      equity += t.pnl || 0;
+      if (equity > peak) peak = equity;
+      const dd = ((peak - equity) / peak) * 100;
+      if (dd > maxDD) maxDD = dd;
+    });
+
+    return {
+      totalReturn: (totalPnL / 1000) * 100,
+      winRate: closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : 0,
+      profitFactor: totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0,
+      maxDrawdown: maxDD,
+    };
+  }, [trades]);
+
+  // Compute PnL data from real trades grouped by day
+  const pnlData = useMemo(() => {
+    if (!trades || trades.length === 0) {
+      const data = [];
+      const now = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.push({
+          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+          pnl: 0,
+        });
+      }
+      return data;
+    }
+
+    const dailyPnL: Record<string, number> = {};
+    trades.forEach((trade) => {
+      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+    });
+
+    const data = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      data.push({
+        date: dateStr,
+        pnl: dailyPnL[dateStr] || 0,
+      });
+    }
+    return data;
+  }, [trades]);
+
+  // Compute equity curve from trades
+  const equityData = useMemo(() => {
+    const startingEquity = 1000;
+    if (!trades || trades.length === 0) {
+      const data = [];
+      const now = new Date();
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.push({
+          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+          equity: startingEquity,
+        });
+      }
+      return data;
+    }
+
+    const dailyPnL: Record<string, number> = {};
+    trades.forEach((trade) => {
+      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+    });
+
+    const data = [];
+    const now = new Date();
+    let equity = startingEquity;
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      equity += dailyPnL[dateStr] || 0;
+      data.push({
+        date: dateStr,
+        equity: Math.max(equity, 0),
+      });
+    }
+    return data;
+  }, [trades]);
 
   return (
     <ThreeColumnLayout>
@@ -77,8 +161,8 @@ export default function AnalyzePage() {
                 Total Return
               </p>
             </div>
-            <p className="text-2xl font-mono font-bold text-emerald-400">
-              +12.4%
+            <p className={`text-2xl font-mono font-bold ${stats.totalReturn >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {stats.totalReturn >= 0 ? "+" : ""}{stats.totalReturn.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
@@ -92,7 +176,7 @@ export default function AnalyzePage() {
               </p>
             </div>
             <p className="text-2xl font-mono font-bold">
-              62.5%
+              {stats.winRate.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
@@ -106,7 +190,7 @@ export default function AnalyzePage() {
               </p>
             </div>
             <p className="text-2xl font-mono font-bold">
-              1.85
+              {stats.profitFactor.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -120,7 +204,7 @@ export default function AnalyzePage() {
               </p>
             </div>
             <p className="text-2xl font-mono font-bold text-red-400">
-              -8.2%
+              -{stats.maxDrawdown.toFixed(1)}%
             </p>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { PnLChart, EquityChart } from "@/components/charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,43 +17,88 @@ import {
 import useSWR from "swr";
 import { fetcher, Trade, Status } from "@/lib/api";
 
-// Generate sample data for charts
-const generatePnLData = () => {
-  const data = [];
-  const now = new Date();
-  for (let i = 14; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-      pnl: Math.random() * 10 - 3, // -3% to +7%
-    });
-  }
-  return data;
-};
-
-const generateEquityData = () => {
-  const data = [];
-  const now = new Date();
-  let equity = 1000;
-  for (let i = 14; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    equity += Math.random() * 100 - 30;
-    data.push({
-      date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-      equity: Math.max(equity, 500),
-    });
-  }
-  return data;
-};
-
 export default function DashboardPage() {
   const { data: status } = useSWR<Status>("/status", fetcher, { refreshInterval: 5000 });
-  const { data: trades } = useSWR<Trade[]>("/trades?limit=5", fetcher, { refreshInterval: 10000 });
+  const { data: trades } = useSWR<Trade[]>("/trades?limit=100", fetcher, { refreshInterval: 10000 });
 
-  const pnlData = generatePnLData();
-  const equityData = generateEquityData();
+  // Compute PnL data from real trades grouped by day
+  const pnlData = useMemo(() => {
+    if (!trades || trades.length === 0) {
+      // Return empty placeholder for last 14 days
+      const data = [];
+      const now = new Date();
+      for (let i = 13; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.push({
+          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+          pnl: 0,
+        });
+      }
+      return data;
+    }
+
+    // Group trades by day and sum PnL
+    const dailyPnL: Record<string, number> = {};
+    trades.forEach((trade) => {
+      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+    });
+
+    // Get last 14 days
+    const data = [];
+    const now = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      data.push({
+        date: dateStr,
+        pnl: dailyPnL[dateStr] || 0,
+      });
+    }
+    return data;
+  }, [trades]);
+
+  // Compute equity curve from trades
+  const equityData = useMemo(() => {
+    const startingEquity = 1000; // Starting balance
+    if (!trades || trades.length === 0) {
+      const data = [];
+      const now = new Date();
+      for (let i = 13; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        data.push({
+          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+          equity: startingEquity,
+        });
+      }
+      return data;
+    }
+
+    // Group trades by day and compute cumulative equity
+    const dailyPnL: Record<string, number> = {};
+    trades.forEach((trade) => {
+      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+    });
+
+    const data = [];
+    const now = new Date();
+    let equity = startingEquity;
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      equity += dailyPnL[dateStr] || 0;
+      data.push({
+        date: dateStr,
+        equity: Math.max(equity, 0),
+      });
+    }
+    return data;
+  }, [trades]);
 
   return (
     <ThreeColumnLayout>
