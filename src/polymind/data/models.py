@@ -12,6 +12,7 @@ class SignalSource(Enum):
 
     CLOB = "clob"
     CHAIN = "chain"
+    ARBITRAGE = "arbitrage"
 
 
 @dataclass
