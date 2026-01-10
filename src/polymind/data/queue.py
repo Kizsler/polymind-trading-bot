@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from asyncio import QueueFull
 from collections import OrderedDict
 
 from polymind.data.models import TradeSignal
@@ -43,7 +44,7 @@ class SignalQueue:
             signal: The trade signal to add.
 
         Returns:
-            True if added, False if duplicate.
+            True if added, False if duplicate or queue is full.
         """
         async with self._lock:
             self._clean_old_entries()
@@ -52,8 +53,12 @@ class SignalQueue:
             if dedup_id in self._seen:
                 return False
 
+            try:
+                self._queue.put_nowait(signal)
+            except QueueFull:
+                return False
+
             self._seen[dedup_id] = time.monotonic()
-            await self._queue.put(signal)
             return True
 
     async def get(self, timeout: float | None = None) -> TradeSignal:

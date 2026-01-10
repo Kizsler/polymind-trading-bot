@@ -184,7 +184,7 @@ async def test_queue_dedup_window():
 
 @pytest.mark.asyncio
 async def test_queue_max_size():
-    """Queue respects max_size."""
+    """Queue respects max_size and returns False when full."""
     queue = SignalQueue(max_size=3)
 
     # Add signals up to max
@@ -196,6 +196,16 @@ async def test_queue_max_size():
         added = await queue.put(signal)
         assert added is True
 
-    # Queue is full - next put should block or fail
-    # We'll verify the queue has 3 items
+    # Queue is full
+    assert queue.size == 3
+
+    # Try to add one more signal - should return False
+    overflow_signal = _make_signal(
+        market_id="market-overflow",
+        timestamp=datetime(2025, 1, 15, 10, 35, 0, tzinfo=UTC),
+    )
+    added = await queue.put(overflow_signal)
+    assert added is False
+
+    # Queue size should still be 3
     assert queue.size == 3
