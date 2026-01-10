@@ -41,45 +41,50 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-dm-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 /* Custom utility classes */
-@layer utilities {
-  .text-profit {
-    @apply text-emerald-500;
-  }
-  .text-loss {
-    @apply text-red-500;
-  }
-  .bg-profit {
-    @apply bg-emerald-500;
-  }
-  .bg-loss {
-    @apply bg-red-500;
-  }
-  .font-display {
-    font-family: var(--font-sora), system-ui, sans-serif;
-  }
-  .font-mono-data {
-    font-family: var(--font-mono), monospace;
-  }
-  .glow-violet {
-    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
-  }
-  .glow-profit {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-  }
-  .gradient-violet {
-    background: linear-gradient(135deg, #7c3aed 0%, #d946ef 100%);
-  }
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-white/5;
-  }
+.text-profit {
+  color: #10b981;
+}
+.text-loss {
+  color: #ef4444;
+}
+.bg-profit {
+  background-color: #10b981;
+}
+.bg-loss {
+  background-color: #ef4444;
+}
+.font-display {
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
+.font-mono-data {
+  font-family: var(--font-mono), monospace;
+}
+.glow-violet {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+}
+.glow-profit {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+.gradient-violet {
+  background: linear-gradient(135deg, #7c3aed 0%, #d946ef 100%);
+}
+.glass {
+  background-color: hsl(var(--card) / 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Grid pattern background */

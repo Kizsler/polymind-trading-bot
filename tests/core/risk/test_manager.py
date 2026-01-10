@@ -40,10 +40,11 @@ class TestRiskViolationEnum:
     def test_risk_violation_enum_members(self):
         """Verify all expected members exist."""
         members = list(RiskViolation)
-        assert len(members) == 3
+        assert len(members) == 4
         assert RiskViolation.DAILY_LOSS_EXCEEDED in members
         assert RiskViolation.EXPOSURE_EXCEEDED in members
         assert RiskViolation.TRADE_SIZE_EXCEEDED in members
+        assert RiskViolation.SLIPPAGE_EXCEEDED in members
 
 
 class TestRiskManager:

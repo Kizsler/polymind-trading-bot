@@ -90,6 +90,24 @@ class Cache:
         """Set trading mode."""
         await self.redis.set(f"{self.PREFIX_SYSTEM}:mode", mode)
 
+    # Emergency stop
+
+    async def is_stopped(self) -> bool:
+        """Check if emergency stop is active."""
+        value = await self.redis.get(f"{self.PREFIX_SYSTEM}:emergency_stop")
+        return value is not None and value.decode().lower() == "true"
+
+    async def set_emergency_stop(self, stopped: bool) -> None:
+        """Set emergency stop state.
+
+        Args:
+            stopped: True to stop all trading, False to resume.
+        """
+        await self.redis.set(
+            f"{self.PREFIX_SYSTEM}:emergency_stop",
+            "true" if stopped else "false",
+        )
+
     # Settings
 
     async def get_settings(self) -> dict:

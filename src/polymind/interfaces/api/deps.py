@@ -57,14 +57,17 @@ async def get_arbitrage_service() -> ArbitrageMonitorService:
     global _arbitrage_service, _kalshi_client, _polymarket_client
 
     if _arbitrage_service is None:
+        settings = await get_settings()
+
         if _kalshi_client is None:
-            _kalshi_client = KalshiClient()
+            _kalshi_client = KalshiClient(
+                api_key=settings.kalshi.api_key or None,
+                private_key_path=settings.kalshi.private_key_path or None,
+            )
         if _polymarket_client is None:
-            settings = await get_settings()
             _polymarket_client = PolymarketClient(settings=settings)
 
         db = await get_db()
-        settings = await get_settings()
 
         _arbitrage_service = ArbitrageMonitorService(
             kalshi_client=_kalshi_client,

@@ -256,5 +256,5 @@ class TestDecisionContextBuilder:
 
         # Verify it's a valid dict structure
         assert isinstance(result, dict)
-        assert len(result) == 4
+        assert len(result) == 5  # signal, wallet_metrics, wallet_controls, market_data, risk_state
         assert all(isinstance(v, dict) for v in result.values())

@@ -16,6 +16,7 @@ class RiskViolation(Enum):
     DAILY_LOSS_EXCEEDED = "daily_loss_exceeded"
     EXPOSURE_EXCEEDED = "exposure_exceeded"
     TRADE_SIZE_EXCEEDED = "trade_size_exceeded"
+    SLIPPAGE_EXCEEDED = "slippage_exceeded"
 
 
 class CacheProtocol(Protocol):
@@ -45,6 +46,7 @@ class RiskManager:
         max_daily_loss: float,
         max_total_exposure: float,
         max_single_trade: float,
+        max_slippage: float = 0.05,  # 5% default max slippage
     ) -> None:
         """Initialize risk manager with limits.
 
@@ -53,11 +55,13 @@ class RiskManager:
             max_daily_loss: Maximum allowed daily loss (positive number)
             max_total_exposure: Maximum total open exposure allowed
             max_single_trade: Maximum size for a single trade
+            max_slippage: Maximum allowed slippage (0.05 = 5%)
         """
         self.cache = cache
         self.max_daily_loss = max_daily_loss
         self.max_total_exposure = max_total_exposure
         self.max_single_trade = max_single_trade
+        self.max_slippage = max_slippage
 
     async def validate(self, decision: AIDecision) -> AIDecision:
         """Validate and potentially adjust a trading decision.
@@ -153,4 +157,35 @@ class RiskManager:
             )
 
         logger.info("Risk validation complete: decision approved without changes")
+        return decision
+
+    def validate_slippage(
+        self, decision: AIDecision, spread: float
+    ) -> AIDecision:
+        """Validate trade against slippage limits.
+
+        Should be called before the main validate() method.
+
+        Args:
+            decision: The AI's trading decision
+            spread: Current market spread (0.05 = 5%)
+
+        Returns:
+            Original decision if OK, rejection if slippage too high
+        """
+        if not decision.execute:
+            return decision
+
+        if spread > self.max_slippage:
+            logger.warning(
+                "Risk violation: {} (spread: {:.2%}, limit: {:.2%})",
+                RiskViolation.SLIPPAGE_EXCEEDED.value,
+                spread,
+                self.max_slippage,
+            )
+            return AIDecision.reject(
+                f"Trade blocked: {RiskViolation.SLIPPAGE_EXCEEDED.value} "
+                f"(spread: {spread:.2%}, limit: {self.max_slippage:.2%})"
+            )
+
         return decision

@@ -12,6 +12,9 @@ import {
   Radio,
   Wifi,
   WifiOff,
+  Filter,
+  GitCompare,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/lib/websocket";
@@ -27,6 +30,9 @@ const navigation = [
   { name: "Overview", href: "/", icon: LayoutDashboard },
   { name: "Wallets", href: "/wallets", icon: Wallet },
   { name: "Trades", href: "/trades", icon: Activity },
+  { name: "Orders", href: "/orders", icon: ClipboardList },
+  { name: "Filters", href: "/filters", icon: Filter },
+  { name: "Arbitrage", href: "/arbitrage", icon: GitCompare },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

@@ -56,6 +56,18 @@ class RiskManagerProtocol(Protocol):
         """
         ...
 
+    def validate_slippage(self, decision: AIDecision, spread: float) -> AIDecision:
+        """Validate trade against slippage limits.
+
+        Args:
+            decision: The AI's trading decision
+            spread: Current market spread (0.05 = 5%)
+
+        Returns:
+            Original decision if OK, rejection if slippage too high
+        """
+        ...
+
 
 class ExecutorProtocol(Protocol):
     """Protocol for trade executor dependency injection."""
@@ -145,7 +157,20 @@ class DecisionBrain:
             decision.confidence,
         )
 
-        # Step 3: Validate with risk manager
+        # Step 3a: Check slippage before full risk validation
+        spread = context.market_spread
+        decision = self._risk_manager.validate_slippage(decision, spread)
+        if not decision.execute:
+            logger.warning("Trade rejected due to slippage: {}", decision.reasoning)
+            return ExecutionResult(
+                success=False,
+                executed_size=0.0,
+                executed_price=0.0,
+                paper_mode=True,
+                message=f"Trade rejected: {decision.reasoning}",
+            )
+
+        # Step 3b: Validate with risk manager (exposure, daily loss, size limits)
         validated_decision = await self._risk_manager.validate(decision)
 
         # Step 4: If rejected after risk validation, return failure result

@@ -1,6 +1,7 @@
 """Claude API client for AI-powered trading decisions."""
 
 import json
+import re
 from typing import Any
 
 import anthropic
@@ -9,34 +10,38 @@ from polymind.core.brain.context import DecisionContext
 from polymind.core.brain.decision import AIDecision
 
 SYSTEM_PROMPT = """\
-You are a conservative trading assistant that evaluates trade signals \
-and decides whether to execute them.
+You are a trading assistant that evaluates copy trade signals.
 
-Your primary goal is to PROTECT CAPITAL while seeking profitable opportunities.
+Your goal: COPY PROFITABLE TRADERS while managing risk.
 
-When evaluating a trade signal, consider:
-1. Wallet Performance: Higher win rate and ROI indicate more reliable signals
-2. Market Liquidity: Ensure sufficient liquidity to enter/exit positions
-3. Risk Exposure: Current P&L and open exposure vs. max allowed loss
-4. Signal Quality: Size, price, and side relative to market conditions
+WALLET PERFORMANCE SCORING (use this to determine trust level):
+- ELITE (>20 trades, >60% win rate, >5% ROI): Trust level 90% - copy up to 80% size
+- PROVEN (>10 trades, >55% win rate, >0% ROI): Trust level 70% - copy up to 60% size
+- MODERATE (5-10 trades, >50% win rate): Trust level 50% - copy up to 40% size
+- NEW (1-5 trades): Trust level 30% - copy up to 25% size to test
+- UNPROVEN (0 trades): Trust level 20% - copy 10-15% size to discover
 
-Decision Guidelines:
-- Be CONSERVATIVE - when in doubt, reject the trade
-- Never risk more than the remaining daily loss budget
-- Prefer smaller position sizes for unproven wallets
-- Higher confidence requires stronger supporting data
-- Set urgency based on how time-sensitive the opportunity is
+MARKET CONDITIONS:
+- Liquidity >$5000: Good - no adjustment needed
+- Liquidity $1000-$5000: Reduce size by 25%
+- Liquidity <$1000: REJECT - too risky to enter/exit
+- Spread >5%: REJECT - too expensive
 
-You MUST respond with a valid JSON object containing exactly these fields:
+RISK RULES:
+- Never exceed remaining daily loss budget
+- Scale position size by wallet trust level
+- Higher spread = lower confidence
+
+Calculate final size as: signal_size * trust_level * liquidity_factor
+
+Respond with ONLY this JSON (no markdown, no extra text):
 {
-    "execute": boolean,      // true to execute, false to reject
-    "size": number,          // position size (0 if rejecting)
-    "confidence": number,    // 0.0 to 1.0 confidence level
-    "urgency": string,       // "high", "normal", or "low"
-    "reasoning": string      // brief explanation of your decision
-}
-
-Respond ONLY with the JSON object, no additional text."""
+    "execute": boolean,
+    "size": number,
+    "confidence": number,
+    "urgency": "high" | "normal" | "low",
+    "reasoning": string
+}"""
 
 
 class ClaudeClient:
@@ -139,7 +144,38 @@ Provide your decision as JSON."""
             return AIDecision.from_dict(decision_data)
 
         except json.JSONDecodeError:
+            # Try to extract JSON from markdown code blocks
+            extracted = self._extract_json(response_text)
+            if extracted:
+                try:
+                    decision_data = json.loads(extracted)
+                    return AIDecision.from_dict(decision_data)
+                except json.JSONDecodeError:
+                    pass
             return AIDecision.reject("Failed to parse AI response as JSON")
 
         except Exception as e:
             return AIDecision.reject(f"API error: {e!s}")
+
+    def _extract_json(self, text: str) -> str | None:
+        """Extract JSON from markdown code blocks or raw text.
+
+        Args:
+            text: Raw response text that may contain JSON
+
+        Returns:
+            Extracted JSON string or None if not found
+        """
+        # Try to find JSON in code blocks
+        code_block_pattern = r"```(?:json)?\s*(\{[\s\S]*?\})\s*```"
+        match = re.search(code_block_pattern, text)
+        if match:
+            return match.group(1)
+
+        # Try to find raw JSON object
+        json_pattern = r"\{[\s\S]*?\}"
+        match = re.search(json_pattern, text)
+        if match:
+            return match.group(0)
+
+        return None

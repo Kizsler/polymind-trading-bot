@@ -89,14 +89,15 @@ class MarketDataService:
         orderbook = self._client.get_orderbook(token_id)
         total = 0.0
 
-        for bid in orderbook.get("bids", []):
-            price = float(bid.get("price", 0))
-            size = float(bid.get("size", 0))
+        # OrderBookSummary has bids/asks as attributes with OrderSummary objects
+        for bid in getattr(orderbook, "bids", []) or []:
+            price = float(getattr(bid, "price", 0) or 0)
+            size = float(getattr(bid, "size", 0) or 0)
             total += price * size
 
-        for ask in orderbook.get("asks", []):
-            price = float(ask.get("price", 0))
-            size = float(ask.get("size", 0))
+        for ask in getattr(orderbook, "asks", []) or []:
+            price = float(getattr(ask, "price", 0) or 0)
+            size = float(getattr(ask, "size", 0) or 0)
             total += price * size
 
         return total
@@ -114,15 +115,15 @@ class MarketDataService:
             return 0.0
 
         orderbook = self._client.get_orderbook(token_id)
-        bids = orderbook.get("bids", [])
-        asks = orderbook.get("asks", [])
+        bids = getattr(orderbook, "bids", []) or []
+        asks = getattr(orderbook, "asks", []) or []
 
         if not bids or not asks:
             return 0.0
 
         # Best bid is highest price, best ask is lowest price
-        best_bid = max(float(bid.get("price", 0)) for bid in bids)
-        best_ask = min(float(ask.get("price", float("inf"))) for ask in asks)
+        best_bid = max(float(getattr(bid, "price", 0) or 0) for bid in bids)
+        best_ask = min(float(getattr(ask, "price", 0) or float("inf")) for ask in asks)
 
         return best_ask - best_bid
 

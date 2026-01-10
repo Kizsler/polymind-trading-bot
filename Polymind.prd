@@ -1,0 +1,188 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+Project Name: PolyMind
+Version: 1.0
+Status: Draft
+Owner: You
+Last Updated: 2026-01-09
+
+--------------------------------------------------
+1. PRODUCT OVERVIEW
+--------------------------------------------------
+
+PolyMind is an AI-powered automated trading bot designed for prediction markets.
+The system focuses on copy trading, trade sniping, and arbitrage across
+Polymarket, Kalshi, and Binance price feeds.
+
+The bot continuously monitors selected wallets, market prices, and real-time
+crypto data, then uses an AI decision engine to determine if, when, and how
+trades should be executed.
+
+--------------------------------------------------
+2. PROBLEM STATEMENT
+--------------------------------------------------
+
+Prediction markets are often inefficient due to:
+- Delayed human reaction times
+- Fragmented liquidity across platforms
+- Lag between real-world data and market prices
+- Emotional and inconsistent manual trading
+
+Advanced traders want a fully automated, intelligent system that can:
+- Copy profitable wallets
+- React instantly to market movements
+- Exploit pricing inefficiencies safely
+- Apply consistent risk management
+
+--------------------------------------------------
+3. TARGET USERS
+--------------------------------------------------
+
+- Advanced Polymarket traders
+- Crypto-native traders
+- Arbitrage-focused users
+- Quant-style retail traders
+- DAO or group-managed wallets
+
+--------------------------------------------------
+4. CORE FEATURES (MVP)
+--------------------------------------------------
+
+4.1 WALLET COPY TRADING (POLYMARKET)
+
+Description:
+Automatically copy trades from selected wallets on Polymarket.
+
+Requirements:
+- Monitor on-chain wallet activity
+- Detect market ID, outcome (YES/NO), trade size, and timestamp
+- Execute matching trade on the user’s wallet
+
+Controls:
+- Trade size scaling (percentage-based)
+- Maximum trade size
+- Maximum slippage
+- Enable/disable per wallet
+- Allowlist or denylist markets
+
+--------------------------------------------------
+
+4.2 TRADE SNIPING ENGINE
+
+Description:
+Instantly execute trades when a watched wallet places a trade.
+
+Requirements:
+- Near real-time transaction detection
+- Fast execution logic
+- Slippage protection
+- Market validation before execution
+
+AI Involvement:
+- Decide whether to snipe or ignore the trade
+- Adjust urgency and size based on liquidity and volatility
+
+--------------------------------------------------
+
+4.3 POLYMARKET ↔ KALSHI ARBITRAGE
+
+Description:
+Detect and optionally execute trades when equivalent markets are mispriced
+between Polymarket and Kalshi.
+
+Requirements:
+- Market normalization across platforms
+- Convert odds to implied probability
+- Detect inefficiencies above a configurable threshold
+
+Modes:
+- Alert only
+- AI-approved execution
+- Fully automated execution
+
+--------------------------------------------------
+
+4.4 BINANCE ↔ POLYMARKET PRICE LAG
+
+Description:
+Use real-time crypto prices from Binance to exploit lag in Polymarket
+crypto-related prediction markets.
+
+Requirements:
+- Binance WebSocket price feed
+- Market condition matching (e.g. BTC above/below threshold)
+- Time-to-resolution awareness
+
+AI Involvement:
+- Confidence scoring before trade execution
+- Volatility-aware position sizing
+
+--------------------------------------------------
+
+4.5 AI DECISION BRAIN (CORE SYSTEM)
+
+Description:
+A centralized AI system that controls all trading decisions.
+
+Responsibilities:
+- Approve or reject copy trades
+- Approve or reject sniping attempts
+- Approve or reject arbitrage opportunities
+- Adjust trade size dynamically
+- Pause or stop trading during abnormal conditions
+
+--------------------------------------------------
+5. AI CAPABILITIES
+--------------------------------------------------
+
+- Wallet performance scoring
+- Market confidence estimation
+- Volatility-aware risk management
+- Strategy performance tracking
+- Continuous learning from trade outcomes
+
+--------------------------------------------------
+6. RISK MANAGEMENT
+--------------------------------------------------
+
+Hard Limits:
+- Maximum daily loss
+- Maximum exposure per market
+- Maximum exposure per wallet
+- Emergency stop switch
+
+AI-Based Adjustments:
+- Reduce trade size during high volatility
+- Disable underperforming wallets
+- Pause trading during extreme market conditions
+
+--------------------------------------------------
+7. NON-GOALS
+--------------------------------------------------
+
+- Market manipulation
+- Guaranteed profit claims
+- Front-running private users
+- Circumventing platform terms of service
+
+--------------------------------------------------
+8. SUCCESS METRICS
+--------------------------------------------------
+
+- Trade execution latency under 500ms
+- Copy trade success rate above 95%
+- AI-filtered trades outperform naive copy trading
+- System uptime above 99%
+
+--------------------------------------------------
+9. FUTURE EXTENSIONS
+--------------------------------------------------
+
+- Backtesting engine
+- Strategy marketplace
+- Multi-wallet capital routing
+- Cloud execution nodes
+- DAO treasury mode
+
+--------------------------------------------------
+END OF DOCUMENT
+--------------------------------------------------

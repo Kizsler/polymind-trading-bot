@@ -22,6 +22,12 @@ class Wallet(Base):
     address: Mapped[str] = mapped_column(String(42), unique=True, index=True)
     alias: Mapped[str | None] = mapped_column(String(100), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Per-wallet trading controls
+    scale_factor: Mapped[float] = mapped_column(Float, default=1.0)
+    max_trade_size: Mapped[float | None] = mapped_column(Float, nullable=True)
+    min_confidence: Mapped[float] = mapped_column(Float, default=0.0)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -129,4 +135,61 @@ class RiskEvent(Base):
     details: Mapped[str] = mapped_column(Text)
     triggered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class MarketFilter(Base):
+    """Market allow/deny filter rules."""
+
+    __tablename__ = "market_filters"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filter_type: Mapped[str] = mapped_column(String(20))  # market_id, category, keyword
+    value: Mapped[str] = mapped_column(String(255))
+    action: Mapped[str] = mapped_column(String(10))  # allow, deny
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class MarketMapping(Base):
+    """Cross-platform market mappings for arbitrage."""
+
+    __tablename__ = "market_mappings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    polymarket_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    kalshi_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class Order(Base):
+    """Order lifecycle tracking."""
+
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    signal_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    market_id: Mapped[str] = mapped_column(String(200), index=True)
+    side: Mapped[str] = mapped_column(String(10))  # BUY or SELL
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    requested_size: Mapped[float] = mapped_column(Float)
+    filled_size: Mapped[float] = mapped_column(Float, default=0.0)
+    requested_price: Mapped[float] = mapped_column(Float)
+    filled_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )

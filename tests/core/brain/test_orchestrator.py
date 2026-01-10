@@ -79,8 +79,12 @@ def mock_risk_manager():
     async def pass_through(decision):
         return decision
 
+    def slippage_pass_through(decision, spread):
+        return decision
+
     manager = AsyncMock()
     manager.validate = AsyncMock(side_effect=pass_through)
+    manager.validate_slippage = slippage_pass_through
     return manager
 
 
@@ -173,6 +177,7 @@ class TestDecisionBrain:
                 "(daily P&L: -550.00, limit: -500.00)"
             )
         )
+        mock_risk_manager.validate_slippage = lambda decision, spread: decision
 
         brain = DecisionBrain(
             context_builder=mock_context_builder,
@@ -261,6 +266,7 @@ class TestDecisionBrain:
                 reasoning="Strong signal [Size adjusted by risk manager]",
             )
         )
+        mock_risk_manager.validate_slippage = lambda decision, spread: decision
 
         # Create executor that returns adjusted size
         mock_executor.execute = AsyncMock(
@@ -336,6 +342,10 @@ class TestDecisionBrain:
             call_order.append("risk_manager")
             return decision
 
+        def track_slippage_validate(decision, spread):
+            call_order.append("slippage_check")
+            return decision
+
         async def track_execute(signal, decision):
             call_order.append("executor")
             return ExecutionResult(
@@ -349,6 +359,7 @@ class TestDecisionBrain:
         mock_context_builder.build = AsyncMock(side_effect=track_context_build)
         mock_claude_client.evaluate = AsyncMock(side_effect=track_claude_evaluate)
         mock_risk_manager.validate = AsyncMock(side_effect=track_risk_validate)
+        mock_risk_manager.validate_slippage = track_slippage_validate
         mock_executor.execute = AsyncMock(side_effect=track_execute)
 
         await decision_brain.process(sample_signal)
@@ -356,6 +367,7 @@ class TestDecisionBrain:
         assert call_order == [
             "context_builder",
             "claude_client",
+            "slippage_check",
             "risk_manager",
             "executor",
         ]

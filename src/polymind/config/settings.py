@@ -117,6 +117,20 @@ class DiscordConfig(BaseSettings):
     enabled: bool = Field(default=False)
 
 
+class KalshiConfig(BaseSettings):
+    """Kalshi API configuration."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_KALSHI_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    api_key: str = Field(default="", description="Kalshi API key ID")
+    private_key_path: str = Field(default="", description="Path to RSA private key PEM file")
+
+
 class ArbitrageConfig(BaseSettings):
     """Arbitrage monitoring configuration."""
 
@@ -153,6 +167,7 @@ class Settings(BaseSettings):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
     discord: DiscordConfig = Field(default_factory=DiscordConfig)
+    kalshi: KalshiConfig = Field(default_factory=KalshiConfig)
     arbitrage: ArbitrageConfig = Field(default_factory=ArbitrageConfig)
 
 
