@@ -1,9 +1,10 @@
 """Wallets endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from polymind.interfaces.api.deps import get_db
+from polymind.interfaces.api.websocket import manager
 from polymind.storage.database import Database
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
@@ -43,10 +44,14 @@ async def list_wallets(db: Database = Depends(get_db)) -> list[dict]:
 
 
 @router.post("", response_model=WalletResponse, status_code=status.HTTP_201_CREATED)
-async def add_wallet(wallet: WalletCreate, db: Database = Depends(get_db)) -> dict:
+async def add_wallet(
+    wallet: WalletCreate,
+    background_tasks: BackgroundTasks,
+    db: Database = Depends(get_db),
+) -> dict:
     """Add a wallet to track."""
     created = await db.add_wallet(address=wallet.address, alias=wallet.alias)
-    return {
+    result = {
         "id": created.id,
         "address": created.address,
         "alias": created.alias,
@@ -55,10 +60,22 @@ async def add_wallet(wallet: WalletCreate, db: Database = Depends(get_db)) -> di
         "total_pnl": None,
     }
 
+    # Broadcast wallet added to WebSocket clients
+    background_tasks.add_task(manager.broadcast, "wallet", {"action": "added", "wallet": result})
+
+    return result
+
 
 @router.delete("/{address}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_wallet(address: str, db: Database = Depends(get_db)) -> None:
+async def remove_wallet(
+    address: str,
+    background_tasks: BackgroundTasks,
+    db: Database = Depends(get_db),
+) -> None:
     """Remove a wallet from tracking."""
     removed = await db.remove_wallet(address=address)
     if not removed:
         raise HTTPException(status_code=404, detail="Wallet not found")
+
+    # Broadcast wallet removed to WebSocket clients
+    background_tasks.add_task(manager.broadcast, "wallet", {"action": "removed", "address": address})

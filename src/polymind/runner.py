@@ -14,6 +14,7 @@ from polymind.data.models import TradeSignal
 from polymind.data.polymarket.client import PolymarketClient
 from polymind.data.polymarket.data_api import DataAPIClient
 from polymind.data.polymarket.markets import MarketDataService
+from polymind.interfaces.api.websocket import manager as ws_manager
 from polymind.services.monitor import WalletMonitorService
 from polymind.storage.cache import Cache, create_cache
 from polymind.storage.database import Database
@@ -65,10 +66,49 @@ class BotRunner:
                     )
                 else:
                     logger.info("Trade not executed: {}", result.message)
+
+                # Broadcast trade event to WebSocket clients
+                await self._broadcast_trade(signal, result)
+
+                # Broadcast updated status
+                await self._broadcast_status()
+
             except Exception as e:
                 logger.error("Error processing signal: {}", str(e))
         else:
             logger.warning("DecisionBrain not configured - signal logged but not processed")
+
+    async def _broadcast_trade(self, signal: TradeSignal, result: ExecutionResult) -> None:
+        """Broadcast a trade event to WebSocket clients."""
+        try:
+            trade_data = {
+                "wallet": signal.wallet,
+                "market_id": signal.market_id,
+                "side": signal.side,
+                "size": signal.size,
+                "decision": "COPY" if result.success else "SKIP",
+                "executed": result.success,
+                "executed_size": result.executed_size,
+                "executed_price": result.executed_price,
+                "message": result.message,
+            }
+            await ws_manager.broadcast("trade", trade_data)
+        except Exception as e:
+            logger.warning("Failed to broadcast trade: {}", str(e))
+
+    async def _broadcast_status(self) -> None:
+        """Broadcast current status to WebSocket clients."""
+        if not self._cache:
+            return
+        try:
+            status_data = {
+                "mode": await self._cache.get_mode(),
+                "daily_pnl": await self._cache.get_daily_pnl(),
+                "open_exposure": await self._cache.get_open_exposure(),
+            }
+            await ws_manager.broadcast("status", status_data)
+        except Exception as e:
+            logger.warning("Failed to broadcast status: {}", str(e))
 
     def _setup_brain(self) -> DecisionBrain | None:
         """Set up the DecisionBrain with all dependencies.

@@ -1,11 +1,12 @@
 """FastAPI application setup."""
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from polymind import __version__
 from polymind.interfaces.api.routes import health, settings, status, trades, wallets
+from polymind.interfaces.api.websocket import manager
 from polymind.utils.errors import PolymindError
 from polymind.utils.logging import get_logger
 
@@ -62,3 +63,17 @@ app.include_router(settings.router)
 app.include_router(status.router)
 app.include_router(trades.router)
 app.include_router(wallets.router)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time updates."""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, handle any incoming messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
+    except Exception:
+        await manager.disconnect(websocket)

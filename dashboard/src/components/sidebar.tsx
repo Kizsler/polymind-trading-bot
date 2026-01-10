@@ -10,8 +10,18 @@ import {
   Brain,
   TrendingUp,
   Radio,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/lib/websocket";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
+
+interface StatusData {
+  mode: string;
+  wallets_count: number;
+}
 
 const navigation = [
   { name: "Overview", href: "/", icon: LayoutDashboard },
@@ -22,6 +32,14 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { status: wsStatus } = useWebSocket();
+  const { data: statusData } = useSWR<StatusData>("/status", fetcher, {
+    refreshInterval: wsStatus === "connected" ? 0 : 10000, // Only poll if WS disconnected
+  });
+
+  const isConnected = wsStatus === "connected";
+  const mode = statusData?.mode || "paper";
+  const walletsCount = statusData?.wallets_count ?? 0;
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar">
@@ -66,14 +84,31 @@ export function Sidebar() {
         <div className="border-t border-border p-4">
           <div className="rounded-lg bg-card p-3">
             <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-profit pulse-live" />
-              <span className="text-xs font-medium text-profit">Paper Trading</span>
+              <Radio className={cn("h-4 w-4", mode === "live" ? "text-loss" : "text-profit", "pulse-live")} />
+              <span className={cn("text-xs font-medium", mode === "live" ? "text-loss" : "text-profit")}>
+                {mode === "live" ? "Live Trading" : "Paper Trading"}
+              </span>
             </div>
             <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span>2 wallets tracked</span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                Live
+              <span>{walletsCount} wallet{walletsCount !== 1 ? "s" : ""} tracked</span>
+              <span
+                className={cn(
+                  "flex items-center gap-1",
+                  isConnected ? "text-profit" : "text-muted-foreground"
+                )}
+                title={isConnected ? "WebSocket connected" : "WebSocket disconnected"}
+              >
+                {isConnected ? (
+                  <>
+                    <Wifi className="h-3 w-3" />
+                    Live
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3" />
+                    Offline
+                  </>
+                )}
               </span>
             </div>
           </div>

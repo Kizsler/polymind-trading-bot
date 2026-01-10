@@ -1,9 +1,10 @@
 """Settings endpoint."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from polymind.interfaces.api.deps import get_cache
+from polymind.interfaces.api.websocket import manager
 from polymind.storage.cache import Cache
 
 router = APIRouter()
@@ -32,6 +33,7 @@ async def get_settings(cache: Cache = Depends(get_cache)) -> dict:
 @router.put("/settings")
 async def update_settings(
     updates: SettingsUpdate,
+    background_tasks: BackgroundTasks,
     cache: Cache = Depends(get_cache),
 ) -> dict:
     """Update bot settings.
@@ -44,4 +46,9 @@ async def update_settings(
     if not update_dict:
         return await cache.get_settings()
 
-    return await cache.update_settings(update_dict)
+    result = await cache.update_settings(update_dict)
+
+    # Broadcast settings update to WebSocket clients
+    background_tasks.add_task(manager.broadcast, "settings", result)
+
+    return result
