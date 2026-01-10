@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from polymind import __version__
-from polymind.interfaces.api.routes import health, status, wallets
+from polymind.interfaces.api.routes import health, status, trades, wallets
 from polymind.utils.errors import PolymindError
 from polymind.utils.logging import get_logger
 
@@ -46,4 +46,5 @@ async def general_exception_handler(
 # Include routers
 app.include_router(health.router)
 app.include_router(status.router)
+app.include_router(trades.router)
 app.include_router(wallets.router)

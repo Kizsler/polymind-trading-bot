@@ -100,15 +100,27 @@ class Database:
                 return True
             return False
 
-    async def get_recent_trades(self, limit: int = 10) -> list[Trade]:
-        """Get recent trades with wallet info."""
+    async def get_recent_trades(
+        self, limit: int = 10, executed_only: bool = False
+    ) -> list[Trade]:
+        """Get recent trades with wallet info.
+
+        Args:
+            limit: Maximum number of trades to return
+            executed_only: If True, only return executed trades
+
+        Returns:
+            List of Trade objects ordered by most recent first
+        """
         async with self.session() as session:
-            result = await session.execute(
-                select(Trade)
-                .options(selectinload(Trade.wallet))
-                .order_by(Trade.detected_at.desc())
-                .limit(limit)
-            )
+            query = select(Trade).options(selectinload(Trade.wallet))
+
+            if executed_only:
+                query = query.where(Trade.executed == True)  # noqa: E712
+
+            query = query.order_by(Trade.detected_at.desc()).limit(limit)
+
+            result = await session.execute(query)
             return list(result.scalars().all())
 
     async def get_wallet_metrics(self, wallet_address: str) -> dict[str, Any] | None:
