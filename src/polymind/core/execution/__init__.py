@@ -8,6 +8,10 @@ __all__ = [
     "Order",
     "OrderStatus",
     "OrderManager",
+    "LiveExecutor",
+    "LiveExecutorError",
+    "SafetyGuard",
+    "LiveModeBlockedError",
 ]
 
 
@@ -25,4 +29,10 @@ def __getattr__(name: str):
     if name == "OrderManager":
         from polymind.core.execution.manager import OrderManager
         return OrderManager
+    if name in ("LiveExecutor", "LiveExecutorError"):
+        from polymind.core.execution.live import LiveExecutor, LiveExecutorError
+        return {"LiveExecutor": LiveExecutor, "LiveExecutorError": LiveExecutorError}[name]
+    if name in ("SafetyGuard", "LiveModeBlockedError"):
+        from polymind.core.execution.safety import SafetyGuard, LiveModeBlockedError
+        return {"SafetyGuard": SafetyGuard, "LiveModeBlockedError": LiveModeBlockedError}[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
