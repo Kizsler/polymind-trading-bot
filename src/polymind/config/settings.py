@@ -117,6 +117,22 @@ class DiscordConfig(BaseSettings):
     enabled: bool = Field(default=False)
 
 
+class ArbitrageConfig(BaseSettings):
+    """Arbitrage monitoring configuration."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="POLYMIND_ARBITRAGE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    enabled: bool = Field(default=False, description="Enable arbitrage monitoring")
+    min_spread: float = Field(default=0.03, description="Minimum spread to trigger (3%)")
+    poll_interval: float = Field(default=30.0, description="Seconds between scans")
+    max_signal_size: float = Field(default=100.0, description="Max USD per arbitrage signal")
+
+
 class Settings(BaseSettings):
     """Main application settings."""
 
@@ -137,6 +153,7 @@ class Settings(BaseSettings):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
     discord: DiscordConfig = Field(default_factory=DiscordConfig)
+    arbitrage: ArbitrageConfig = Field(default_factory=ArbitrageConfig)
 
 
 def load_settings() -> Settings:
