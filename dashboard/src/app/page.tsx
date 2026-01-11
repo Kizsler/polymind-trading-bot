@@ -15,6 +15,9 @@ import {
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface Trade {
   id: number;
   market_id: string;
@@ -31,14 +34,13 @@ interface Trade {
 
 export default function DashboardPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
 
   // Fetch user's trades from Supabase
   useEffect(() => {
-    const fetchTrades = async () => {
-      if (!user) return;
+    if (!user) return;
 
+    const fetchTrades = async () => {
       const { data } = await supabase
         .from("trades")
         .select("*")
@@ -51,16 +53,16 @@ export default function DashboardPage() {
 
     fetchTrades();
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates (unique channel per user)
     const channel = supabase
-      .channel("trades")
+      .channel(`trades-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, fetchTrades)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase]);
+  }, [user]);
 
   const startingBalance = profile?.starting_balance ?? 0;
 

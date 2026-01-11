@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 
+// Get singleton client outside component to avoid dependency issues
+const supabase = createClient();
+
 interface CryptoPrice {
   symbol: string;
   price: number;
@@ -37,7 +40,6 @@ interface TrackedWallet {
 
 export function StatusPanel() {
   const { user, profile, loading: authLoading } = useAuth();
-  const supabase = createClient();
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [wallets, setWallets] = useState<TrackedWallet[]>([]);
@@ -51,9 +53,9 @@ export function StatusPanel() {
 
   // Fetch user's trades from Supabase
   useEffect(() => {
-    const fetchTrades = async () => {
-      if (!user) return;
+    if (!user) return;
 
+    const fetchTrades = async () => {
       const { data } = await supabase
         .from("trades")
         .select("pnl, realized_pnl, is_closed, executed")
@@ -64,16 +66,16 @@ export function StatusPanel() {
 
     fetchTrades();
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates (unique channel per user)
     const channel = supabase
-      .channel("status-trades")
+      .channel(`status-trades-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, fetchTrades)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase]);
+  }, [user]);
 
   // Fetch user's tracked wallets
   useEffect(() => {
@@ -117,7 +119,7 @@ export function StatusPanel() {
     };
 
     fetchWallets();
-  }, [user, supabase]);
+  }, [user]);
 
   // Calculate PnL from trades
   const pnlData = useMemo(() => {
