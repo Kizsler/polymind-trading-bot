@@ -10,6 +10,8 @@ import {
   Activity,
   Wallet,
   Loader2,
+  AlertTriangle,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/supabase/auth-context";
@@ -23,7 +25,14 @@ interface CryptoPrice {
 
 interface Trade {
   pnl?: number;
+  realized_pnl?: number;
+  is_closed?: boolean;
   executed: boolean;
+}
+
+interface TrackedWallet {
+  address: string;
+  alias: string | null;
 }
 
 export function StatusPanel() {
@@ -31,6 +40,7 @@ export function StatusPanel() {
   const supabase = createClient();
 
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [wallets, setWallets] = useState<TrackedWallet[]>([]);
   const [isToggling, setIsToggling] = useState(false);
   const [cryptoPrices, setCryptoPrices] = useState<CryptoPrice[]>([
     { symbol: "BTC", price: 0, change24h: 0 },
@@ -46,7 +56,7 @@ export function StatusPanel() {
 
       const { data } = await supabase
         .from("trades")
-        .select("pnl, executed")
+        .select("pnl, realized_pnl, is_closed, executed")
         .eq("user_id", user.id);
 
       if (data) setTrades(data);
@@ -63,6 +73,50 @@ export function StatusPanel() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user, supabase]);
+
+  // Fetch user's tracked wallets
+  useEffect(() => {
+    const fetchWallets = async () => {
+      if (!user) return;
+
+      const allWallets: TrackedWallet[] = [];
+
+      // Get custom wallets
+      const { data: customWallets } = await supabase
+        .from("user_wallets")
+        .select("address, alias")
+        .eq("user_id", user.id)
+        .eq("enabled", true);
+
+      if (customWallets) {
+        customWallets.forEach((w: { address: string; alias: string | null }) => {
+          allWallets.push({ address: w.address, alias: w.alias });
+        });
+      }
+
+      // Get recommended wallet selections
+      const { data: selections } = await supabase
+        .from("user_recommended_selections")
+        .select("wallet_id, recommended_wallets(address, alias)")
+        .eq("user_id", user.id)
+        .eq("enabled", true);
+
+      if (selections) {
+        selections.forEach((sel: { recommended_wallets: { address: string; alias: string } | null }) => {
+          if (sel.recommended_wallets) {
+            allWallets.push({
+              address: sel.recommended_wallets.address,
+              alias: sel.recommended_wallets.alias
+            });
+          }
+        });
+      }
+
+      setWallets(allWallets);
+    };
+
+    fetchWallets();
   }, [user, supabase]);
 
   // Calculate PnL from trades
@@ -249,7 +303,44 @@ export function StatusPanel() {
             </p>
           </div>
         </div>
+
+        {/* Stop At Threshold */}
+        {profile?.min_account_balance && profile.min_account_balance > 0 && (
+          <div className="bg-amber-500/10 rounded-lg p-3 flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground">Stop Trading At</p>
+              <p className="text-sm font-mono font-semibold text-amber-400">
+                ${profile.min_account_balance.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Tracked Wallets */}
+      {wallets.length > 0 && (
+        <div className="glass rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Tracking {wallets.length} Wallet{wallets.length !== 1 ? "s" : ""}
+            </p>
+            <Users className="h-3 w-3 text-violet-400" />
+          </div>
+          <div className="space-y-2 max-h-32 overflow-y-auto">
+            {wallets.map((wallet, idx) => (
+              <div key={idx} className="flex items-center justify-between py-1">
+                <span className="text-sm font-medium truncate max-w-[140px]">
+                  {wallet.alias || `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`}
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {wallet.address.slice(0, 4)}...{wallet.address.slice(-4)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Live Crypto Prices */}
       <div className="glass rounded-xl p-4 space-y-3">
