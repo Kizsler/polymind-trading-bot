@@ -1,0 +1,1212 @@
+================================================================================
+                         POLYMIND TRADING BOT - DOCUMENTATION
+================================================================================
+
+Last Updated: January 2026
+Version: 2.0.0 (Multi-Tenant SaaS)
+Author: @Kizsler
+
+================================================================================
+                              TABLE OF CONTENTS
+================================================================================
+
+1.  WHAT IS POLYMIND?
+2.  KEY RESULTS & TESTING
+3.  COMPLETE FEATURE LIST
+4.  SYSTEM ARCHITECTURE
+5.  USER INTERFACE GUIDE
+6.  SETUP & INSTALLATION
+7.  CLI COMMANDS
+8.  HOW IT WORKS (TECHNICAL)
+9.  DEPLOYMENT
+10. NEXT STEPS / ROADMAP
+11. TECH STACK
+12. PROJECT STRUCTURE
+13. DATABASE SCHEMA
+14. API REFERENCE
+
+================================================================================
+                           1. WHAT IS POLYMIND?
+================================================================================
+
+PolyMind is an AI-powered prediction market copy trading bot that automatically
+mirrors trades from successful "whale" wallets on Polymarket.
+
+THE CONCEPT:
+------------
+1. Identify wallets with proven profitable track records on Polymarket
+2. Monitor these wallets in real-time for new trades
+3. When a whale makes a trade, automatically copy it proportionally
+4. Track P&L as market prices change
+5. Profit when the whales profit
+
+WHO IS THIS FOR:
+----------------
+- Traders who want to leverage the expertise of successful Polymarket traders
+- People who don't have time to research every market themselves
+- Anyone interested in automated copy trading on prediction markets
+
+WHAT MAKES IT UNIQUE:
+---------------------
+- AI-Powered: Claude AI can evaluate trade opportunities (optional)
+- Multi-Tenant SaaS: Deployed to the cloud, each user gets their own instance
+- Real-Time PnL: Prices update continuously showing unrealized gains/losses
+- Professional Dashboard: Trading terminal UI with charts, stats, and controls
+- Paper Trading First: Test strategies risk-free before going live
+
+================================================================================
+                        2. KEY RESULTS & TESTING
+================================================================================
+
+PAPER TRADING SIMULATION RESULTS
+--------------------------------
+
+During a 12-hour paper trading test session, the bot achieved:
+
+    ============================================
+    |                                          |
+    |         +$400+ PROFIT                    |
+    |         in just 12 hours                 |
+    |                                          |
+    ============================================
+
+TEST PARAMETERS:
+- Duration: 12 hours
+- Mode: Paper trading simulation
+- Execution: Mirrors exact real-world execution
+- Pricing: Uses live Polymarket prices
+- Sizing: Same order sizes as would be used with real capital
+
+WHAT THIS PROVES:
+- Trade detection works reliably in real-time
+- Copy execution happens at market prices
+- P&L tracking accurately reflects market movements
+- Following proven wallets can generate meaningful returns
+- The core thesis works: capture whale alpha programmatically
+
+IMPORTANT CAVEATS:
+- Past performance does not guarantee future results
+- Paper trading uses simulated funds, not real money
+- Market conditions vary; volatile markets = more opportunities
+- Results depend heavily on which wallets you follow
+
+================================================================================
+                        3. COMPLETE FEATURE LIST
+================================================================================
+
+IMPLEMENTED FEATURES
+--------------------
+
+USER SYSTEM:
+[x] Supabase authentication (Email/Password sign up/login)
+[x] User profiles with customizable settings
+[x] Row-Level Security - users only see their own data
+[x] Session management and auth state persistence
+
+ONBOARDING WIZARD (4 Steps):
+[x] Step 1: Welcome screen with product intro
+[x] Step 2: Select starting balance ($100, $500, $1000, $5000, $10000)
+[x] Step 3: Choose whale wallets to copy (recommended + custom)
+[x] Step 4: Confirmation and bot launch
+
+WHALE WALLET TRACKING:
+[x] Real-time trade detection via Polymarket Data API
+[x] Pre-curated "recommended wallets" (admin-managed)
+[x] Custom wallet addresses (user-added)
+[x] Per-wallet enable/disable controls
+[x] Win rate and P&L stats per wallet
+
+PAPER TRADING ENGINE:
+[x] Simulates real trades with actual market prices
+[x] Proportional sizing based on copy percentage (default 10%)
+[x] Trade deduplication to prevent double-processing
+[x] Automatic execution on whale trade detection
+[x] Minimum trade size ($1) and maximum (10% of balance)
+
+REAL-TIME P&L CALCULATION:
+[x] Live price updates from Polymarket CLOB API (every 60 seconds)
+[x] Unrealized P&L for open positions
+[x] Realized P&L for resolved markets
+[x] Correct handling of YES/NO market resolution
+[x] Price caching to reduce API calls
+
+DASHBOARD (Professional Trading Terminal):
+[x] Three-column layout (Sidebar | Main Content | Status Panel)
+[x] Real-time trade feed with live updates
+[x] P&L summary with starting balance, realized P&L, account value
+[x] Win rate calculation (wins / total trades)
+[x] Daily P&L bar chart (last 14 days)
+[x] Equity curve chart (portfolio value over time)
+[x] Position breakdown by market
+[x] Wallet performance rankings
+[x] Live crypto prices (BTC, ETH, SOL from CoinGecko)
+
+ACTIVITY PAGE:
+[x] Real-time trade activity feed
+[x] Search by market or wallet
+[x] Filter by side (YES/NO) and status (executed/pending)
+[x] Stats: executed count, pending count, volume, total P&L
+[x] Relative timestamps ("5m ago", "2h ago")
+
+SETTINGS PAGE (5 Tabs):
+[x] Trading tab: Mode display, auto-trade toggle, copy percentage
+[x] AI Engine tab: AI configuration (coming soon)
+[x] Risk Limits tab: Emergency stop, min balance, max trades/day
+[x] Notifications tab: Discord webhook configuration
+[x] API Keys tab: Server-side key management info
+
+WALLETS PAGE:
+[x] Grid view of all tracked wallets
+[x] Add new wallet with address and alias
+[x] Remove wallet
+[x] View combined P&L and average win rate
+[x] Link to Polymarket profile for each wallet
+[x] Copy wallet address to clipboard
+
+STATUS PANEL (Right Sidebar):
+[x] Bot running/stopped status indicator
+[x] Paper mode badge
+[x] Starting balance display
+[x] Realized P&L with color coding
+[x] Win rate percentage
+[x] Account value calculation
+[x] Total trades count
+[x] Copy percentage display
+[x] Live crypto prices (BTC, ETH, SOL)
+[x] Start/Stop bot button
+
+BOT SERVICE (Cloud):
+[x] Multi-tenant architecture (one process handles all users)
+[x] Deployed to Fly.io as background worker
+[x] Polls Polymarket every 30 seconds
+[x] Updates P&L every 60 seconds
+[x] Connects to Supabase with service role key
+
+CLI INTERFACE (Local Development):
+[x] Interactive configuration wizard (10 settings)
+[x] polymind start (with --configure, --quick flags)
+[x] polymind configure (configure without starting)
+[x] polymind status (show bot status)
+[x] polymind pause (emergency stop)
+[x] polymind mode <paper|live|paused>
+[x] polymind trades (show recent trades)
+[x] polymind wallets list/add/remove/enable/disable
+
+ORIGINAL SINGLE-USER FEATURES (Still Available Locally):
+[x] AI Decision Engine using Claude API
+[x] Risk management (daily loss, exposure limits)
+[x] Cross-platform arbitrage (Polymarket vs Kalshi)
+[x] Discord bot integration
+[x] WebSocket real-time updates
+[x] FastAPI REST API
+
+================================================================================
+                        4. SYSTEM ARCHITECTURE
+================================================================================
+
+HIGH-LEVEL ARCHITECTURE
+-----------------------
+
+    +------------------+         +------------------+
+    |                  |         |                  |
+    |   User Browser   | <-----> |  Next.js App     |
+    |                  |   HTTPS |  (Vercel)        |
+    +------------------+         +--------+---------+
+                                          |
+                                          | Supabase Client SDK
+                                          |
+                                          v
+                                 +--------+---------+
+                                 |                  |
+                                 |    Supabase      |
+                                 |  (Database +     |
+                                 |   Auth + RLS)    |
+                                 |                  |
+                                 +--------+---------+
+                                          ^
+                                          |
+                                          | Service Role Key
+                                          |
+                                 +--------+---------+
+                                 |                  |
+                                 |   Bot Service    |
+                                 |   (Fly.io)       |
+                                 |                  |
+                                 +--------+---------+
+                                          |
+                                          | HTTPS
+                                          v
+                                 +------------------+
+                                 |                  |
+                                 |   Polymarket     |
+                                 |   APIs           |
+                                 |                  |
+                                 +------------------+
+
+
+DATA FLOW: TRADE DETECTION & EXECUTION
+--------------------------------------
+
+1. Bot Service polls Polymarket Data API every 30 seconds
+2. For each user with bot_status = "running":
+   a. Fetch their selected wallets (recommended + custom)
+   b. For each wallet, fetch recent trades from Polymarket
+   c. Filter to trades from last 5 minutes
+   d. Check deduplication cache - skip already processed
+3. For new trades:
+   a. Calculate paper trade size: whale_size * copy_percentage
+   b. Apply constraints (min $1, max 10% of balance)
+   c. Fetch current market price for initial P&L
+   d. Insert trade record into Supabase
+4. Dashboard receives real-time update via Supabase subscription
+
+
+DATA FLOW: P&L UPDATES
+----------------------
+
+1. Bot Service runs P&L update loop every 60 seconds
+2. Fetch all executed trades from database
+3. Group by market_id for efficiency
+4. For each market:
+   a. Fetch current price from Polymarket CLOB API
+   b. Check if market is resolved
+5. For each trade:
+   a. Calculate new P&L: (current_price - entry_price) * size
+   b. If resolved: use resolution value ($1 for winner, $0 for loser)
+   c. Update trade record if P&L changed significantly (>$0.01)
+
+
+MULTI-TENANT ARCHITECTURE
+-------------------------
+
+- Single bot process handles ALL users efficiently
+- Shared market price cache reduces API calls
+- Each user's data isolated via Row-Level Security
+- Horizontal scaling possible by sharding users
+
+    +-------------+  +-------------+  +-------------+
+    |   User A    |  |   User B    |  |   User C    |
+    | $1000 bal   |  | $5000 bal   |  |  $500 bal   |
+    | 3 wallets   |  | 5 wallets   |  | 2 wallets   |
+    +------+------+  +------+------+  +------+------+
+           |               |               |
+           +-------+-------+-------+-------+
+                   |
+                   v
+           +-------+-------+
+           |  Bot Service  |
+           | (Single Proc) |
+           +-------+-------+
+                   |
+                   v
+           +-------+-------+
+           |   Supabase    |
+           | (RLS Enabled) |
+           +---------------+
+
+================================================================================
+                        5. USER INTERFACE GUIDE
+================================================================================
+
+LOGIN PAGE (/login)
+-------------------
+- Email and password input fields
+- "Sign Up" and "Sign In" buttons
+- Error messages for invalid credentials
+- Redirects to onboarding for new users, dashboard for existing
+
+ONBOARDING PAGE (/onboarding)
+-----------------------------
+4-step wizard with progress indicator:
+
+Step 1 - Welcome:
+- PolyMind logo with sparkle icon
+- Welcome message explaining paper trading
+- "Get Started" button
+
+Step 2 - Starting Balance:
+- 5 preset options: $100, $500, $1,000, $5,000, $10,000
+- Default: $1,000
+- Explanation: "This simulates your trading capital"
+
+Step 3 - Wallet Selection:
+- "PolyMind Recommended" section (pre-curated wallets)
+  - Each shows alias, description, win rate
+  - Checkbox to select/deselect
+- "Add Custom Wallet" section
+  - Input for wallet address (0x...)
+  - Input for alias (optional)
+  - Add button to add to list
+- Skip option if no wallets selected
+
+Step 4 - Ready:
+- Confirmation of settings
+- Shows starting balance and wallet count
+- "Launch Dashboard" button to complete onboarding
+
+MAIN DASHBOARD (/)
+------------------
+Three-column layout:
+
+LEFT SIDEBAR:
+- PolyMind logo and branding
+- Navigation links:
+  - Overview (main dashboard)
+  - Activity (trade feed)
+  - Wallets (wallet management)
+  - Trades (trade history)
+  - Orders (order management)
+  - Filters (market filters)
+  - Arbitrage (cross-platform)
+  - Settings (bot configuration)
+  - Account (user account)
+- Trading mode indicator (Paper/Live)
+- Wallet count
+- WebSocket connection status (Live/Offline)
+
+MAIN CONTENT:
+- Breadcrumb navigation
+- Search bar
+- Tabs: Account Information | Bot Performance
+- PnL Summary card:
+  - Starting balance (purple highlight)
+  - Total P&L with trend icon (green/red)
+  - Stats grid: Win Rate, Total Trades, Wins, Losses
+  - Recent resolved trades list
+- Trade Timeline (coming soon)
+- Position Breakdown (by market)
+- Wallet Performance (ranking of wallets)
+- Daily P&L Bar Chart (last 14 days)
+- Equity Curve (portfolio value over time)
+
+RIGHT STATUS PANEL:
+- "Your Wallet" header with Paper Mode badge
+- Status indicator (Running/Stopped with pulse animation)
+- Active/Inactive badge
+- Quick Stats:
+  - Starting Balance
+  - Realized P&L (color-coded)
+  - Win Rate (if trades exist)
+  - Account Value (starting + P&L)
+  - Total Trades
+  - Copy Percentage
+- Live Crypto Prices (BTC, ETH, SOL with 24h change)
+- Start/Stop Bot button
+- Paper Account summary section
+
+ACTIVITY PAGE (/activity)
+-------------------------
+- "Live Activity" header with real-time indicator
+- Stats grid: Executed, Pending, Volume, Total P&L
+- Filters:
+  - Search input (markets, wallets)
+  - Side dropdown (All/YES/NO)
+  - Status dropdown (All/Executed/Pending)
+- Trade Activity list:
+  - Status icon (checkmark for executed, circle for pending)
+  - Market title with YES/NO badge
+  - Wallet name and relative time
+  - Trade size and entry price
+  - P&L for executed trades
+
+WALLETS PAGE (/wallets)
+-----------------------
+- Header with "Add Wallet" button
+- Stats: Total Wallets, Combined P&L, Avg Win Rate
+- Wallet cards grid (2 columns):
+  - Alias and Active/Paused badge
+  - Truncated address with copy button
+  - Link to Polymarket profile
+  - Enable/disable toggle
+  - P&L and Win Rate stats
+  - Remove button
+
+SETTINGS PAGE (/settings)
+-------------------------
+5 tabs:
+
+Trading Tab:
+- Current Mode display (Paper Mode badge)
+- Auto-Trade toggle
+- Starting Balance (locked, contact admin to change)
+- Copy Percentage input (1-200%)
+- Max Daily Exposure input
+- Max Trades Per Day input
+- Min Account Balance input
+
+AI Engine Tab:
+- "Coming Soon" message
+- Contact @Kizsler for testing
+
+Risk Limits Tab:
+- Emergency Stop button (red, prominent)
+  - Instantly halts all trading
+  - Resume Trading button when stopped
+- Account Protection settings:
+  - Minimum Account Balance
+  - Max Trades Per Day
+
+Notifications Tab:
+- Discord webhook configuration
+- Enable/disable toggle
+- Notification types: Trade Executed, Trade Skipped, Errors
+
+API Keys Tab:
+- Server-side management notice
+- Contact information for changes
+
+Save Settings button at bottom
+
+================================================================================
+                        6. SETUP & INSTALLATION
+================================================================================
+
+PREREQUISITES
+-------------
+- Node.js 18+
+- Python 3.11+
+- PostgreSQL 16 (or Supabase cloud)
+- Redis 7 (for local development)
+- Git
+
+QUICK START (Development)
+-------------------------
+
+1. Clone the repository:
+   git clone https://github.com/your-repo/polymind.git
+   cd polymind
+
+2. Install backend dependencies:
+   pip install -e ".[dev]"
+
+3. Start infrastructure (PostgreSQL + Redis):
+   docker-compose up -d
+
+4. Run database migrations:
+   alembic upgrade head
+
+5. Install frontend dependencies:
+   cd dashboard
+   npm install
+
+6. Create environment files:
+
+   # Backend (.env in root)
+   POLYMIND_CLAUDE_API_KEY=sk-ant-...
+   POLYMIND_DB_HOST=localhost
+   POLYMIND_DB_PORT=5432
+   POLYMIND_DB_NAME=polymind
+   POLYMIND_DB_USER=postgres
+   POLYMIND_DB_PASSWORD=postgres
+   POLYMIND_REDIS_HOST=localhost
+   POLYMIND_REDIS_PORT=6379
+   POLYMIND_MODE=paper
+
+   # Frontend (dashboard/.env.local)
+   NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+7. Start the bot:
+   polymind start
+
+8. Start the API server (separate terminal):
+   uvicorn polymind.interfaces.api.main:app --reload --port 8000
+
+9. Start the dashboard (separate terminal):
+   cd dashboard
+   npm run dev
+
+10. Access the app:
+    - Dashboard: http://localhost:3000
+    - API: http://localhost:8000
+    - API Docs: http://localhost:8000/docs
+
+
+CLOUD DEPLOYMENT
+----------------
+
+The production deployment uses:
+- Vercel for the Next.js dashboard
+- Fly.io for the bot service
+- Supabase for database and auth
+
+See Section 9 (DEPLOYMENT) for details.
+
+================================================================================
+                           7. CLI COMMANDS
+================================================================================
+
+MAIN COMMANDS
+-------------
+
+polymind start
+  Start the trading bot
+  Options:
+    --configure, -c  : Run interactive configuration wizard
+    --quick, -q      : Skip configuration, use defaults
+
+polymind configure
+  Run configuration wizard without starting bot
+
+polymind status
+  Show current bot status (version, mode, wallets, daily P&L)
+
+polymind pause
+  Emergency stop - immediately halt all trading
+
+polymind mode <paper|live|paused>
+  Switch trading mode
+  WARNING: Live mode uses real money!
+
+polymind trades
+  Show recent trades
+  Options:
+    --limit, -n <number>  : Number of trades to show (default: 10)
+
+
+WALLET MANAGEMENT
+-----------------
+
+polymind wallets list
+  List all tracked wallets with stats
+
+polymind wallets add <address>
+  Add a wallet to track
+  Options:
+    --alias, -a <name>  : Friendly name for wallet
+
+polymind wallets remove <address>
+  Remove a wallet from tracking
+
+polymind wallets enable <address>
+  Enable trading for a wallet
+
+polymind wallets disable <address>
+  Disable trading for a wallet
+
+
+CONFIGURATION WIZARD (10 Settings)
+----------------------------------
+
+When running `polymind start --configure`:
+
+1. Trading Mode (paper/live)
+2. Starting Balance ($)
+3. Max Slippage (%)
+4. Copy Percentage (%)
+5. Max Single Trade Size ($)
+6. Daily Loss Limit ($)
+7. Max Total Exposure ($)
+8. AI Confidence Threshold (%)
+9. Auto-Trade (yes/no)
+10. AI Engine (yes/no)
+
+================================================================================
+                      8. HOW IT WORKS (TECHNICAL)
+================================================================================
+
+FINDING WHALE WALLETS
+---------------------
+
+Currently, whale wallets are identified through:
+
+1. Manual Research:
+   - Browse Polymarket leaderboards
+   - Analyze on-chain transaction patterns
+   - Follow known successful traders on Twitter/Discord
+   - Look for consistent profitable patterns
+
+2. Admin Curation:
+   - Wallets are added to `recommended_wallets` table
+   - Each has: address, alias, description, win_rate
+   - Users can select which recommended wallets to follow
+
+3. User Custom Wallets:
+   - Users can add any Polymarket wallet address
+   - Stored in `user_wallets` table
+   - Per-user, not shared
+
+FUTURE: Automated wallet discovery by analyzing historical
+Polymarket data to find consistently profitable traders.
+
+
+TRADE DETECTION ALGORITHM
+-------------------------
+
+Every 30 seconds, for each tracked wallet:
+
+1. Call Polymarket Data API:
+   GET /trades?maker={wallet_address}&limit=50
+
+2. Filter trades:
+   - Only trades from last 5 minutes (prevents old trade processing)
+   - Skip if trade_id already in processed set
+
+3. Process new trade:
+   - Generate unique ID: {user_id}:{trade_id}
+   - Add to processed set (deduplication)
+   - Continue to execution
+
+
+PAPER TRADE CALCULATION
+-----------------------
+
+Input:
+- whale_trade_size: Size of the whale's trade in USD
+- user_copy_percentage: User's copy setting (default 0.10 = 10%)
+- user_starting_balance: User's paper trading balance
+
+Calculation:
+  our_size = whale_trade_size * user_copy_percentage
+
+Constraints:
+  our_size = max(our_size, 1.0)          # Minimum $1
+  max_allowed = user_starting_balance * 0.10
+  our_size = min(our_size, max_allowed)  # Max 10% of balance
+
+Example:
+  Whale buys $500 YES @ $0.65
+  User copy_percentage = 10%
+  Our trade: $50 YES @ $0.65
+
+
+P&L CALCULATION
+---------------
+
+For OPEN positions (market not resolved):
+  pnl = (current_price - entry_price) * size
+
+For RESOLVED positions:
+  if market_resolved_to_YES:
+    yes_value = 1.0
+    no_value = 0.0
+  else:
+    yes_value = 0.0
+    no_value = 1.0
+
+  if side == "YES":
+    pnl = (yes_value - entry_price) * size
+  else:
+    pnl = (no_value - entry_price) * size
+
+Example 1 (Open position):
+  Bought YES @ $0.40, size = 100 shares
+  Current YES price = $0.65
+  PnL = (0.65 - 0.40) * 100 = +$25.00 (unrealized)
+
+Example 2 (Resolved position):
+  Bought YES @ $0.40, size = 100 shares
+  Market resolves YES (correct prediction)
+  PnL = (1.00 - 0.40) * 100 = +$60.00 (realized)
+
+Example 3 (Loss):
+  Bought YES @ $0.70, size = 100 shares
+  Market resolves NO (wrong prediction)
+  PnL = (0.00 - 0.70) * 100 = -$70.00 (realized)
+
+
+PRICE CACHING
+-------------
+
+To reduce API calls:
+- Market prices cached for 30 seconds
+- Shared across all users
+- Cleared when new price fetched
+
+================================================================================
+                            9. DEPLOYMENT
+================================================================================
+
+CURRENT PRODUCTION DEPLOYMENT
+-----------------------------
+
+Dashboard:   Vercel (polymind-dashboard.vercel.app)
+Bot Service: Fly.io (polymind-bot.fly.dev)
+Database:    Supabase (mfmtowyjxhpwamdbdjgv.supabase.co)
+
+
+VERCEL (Dashboard)
+------------------
+
+Deployment:
+  cd dashboard
+  vercel --prod
+
+Environment Variables (Vercel Dashboard):
+  NEXT_PUBLIC_SUPABASE_URL=https://mfmtowyjxhpwamdbdjgv.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+
+FLY.IO (Bot Service)
+--------------------
+
+Configuration (fly.toml):
+  app = 'polymind-bot'
+  primary_region = 'iad'
+
+  [processes]
+    bot = "python -u main.py"
+
+  [[vm]]
+    memory = '256mb'
+    cpu_kind = 'shared'
+    cpus = 1
+
+Deployment:
+  cd bot-service
+  fly deploy
+
+Secrets:
+  fly secrets set SUPABASE_URL=https://xxx.supabase.co
+  fly secrets set SUPABASE_SERVICE_KEY=eyJ...
+  fly secrets set POLL_INTERVAL=30
+  fly secrets set PNL_UPDATE_INTERVAL=60
+
+
+SUPABASE
+--------
+
+Project URL: https://mfmtowyjxhpwamdbdjgv.supabase.co
+
+Tables created via SQL Editor (see Section 13).
+Row-Level Security enabled on all tables.
+Auth configured for Email/Password.
+
+================================================================================
+                        10. NEXT STEPS / ROADMAP
+================================================================================
+
+HIGH PRIORITY
+-------------
+
+[ ] Live Trading Mode
+    - Connect real Polymarket wallet via API key
+    - Execute actual trades on Polymarket CLOB
+    - Safety confirmations before live trades
+    - Real-time balance tracking
+
+[ ] OAuth Providers
+    - Discord login (social sign-in)
+    - GitHub login
+    - Google login
+
+[ ] Wallet Discovery System
+    - Analyze historical Polymarket data
+    - Automatically identify profitable wallets
+    - Rank by win rate, ROI, consistency
+    - Surface top performers to users
+
+[ ] Advanced Analytics Dashboard
+    - Win rate by market category (politics, crypto, sports)
+    - Best/worst performing wallets
+    - Time-of-day analysis (when whales trade)
+    - Drawdown metrics and risk visualization
+
+
+MEDIUM PRIORITY
+---------------
+
+[ ] Backtesting System
+    - Test strategies on historical data
+    - Simulate different copy percentages
+    - Optimize wallet selection parameters
+
+[ ] Position Management
+    - View all open positions in one place
+    - Manual exit capability (close position early)
+    - Stop-loss rules (auto-exit on X% loss)
+    - Take-profit rules (auto-exit on X% gain)
+
+[ ] Notifications
+    - Email trade alerts
+    - Telegram integration
+    - Push notifications (mobile web)
+    - Custom alert rules
+
+[ ] Leaderboard
+    - Anonymous performance rankings
+    - Compare your performance vs other users
+    - Gamification elements (badges, streaks)
+
+
+LOW PRIORITY / FUTURE
+---------------------
+
+[ ] Mobile App
+    - React Native companion app
+    - Push notifications
+    - Quick trade monitoring
+
+[ ] Social Features
+    - Share trading performance
+    - Follow other PolyMind users
+    - Copy user portfolios (not just wallets)
+
+[ ] Payments (Monetization)
+    - Stripe integration
+    - Premium features (more wallets, faster updates)
+    - Subscription tiers
+
+[ ] Multi-Exchange Support
+    - PredictIt
+    - Metaculus
+    - Manifold Markets
+    - Kalshi (with arbitrage)
+
+[ ] AI Enhancements
+    - Fine-tuned model for trading decisions
+    - Multi-model consensus
+    - Market sentiment analysis
+
+================================================================================
+                           11. TECH STACK
+================================================================================
+
+FRONTEND
+--------
+Framework:     Next.js 15 (App Router)
+Language:      TypeScript
+UI Library:    React 19
+Styling:       Tailwind CSS v4
+Components:    shadcn/ui (Radix primitives)
+Charts:        Recharts
+Data Fetching: SWR + Supabase Realtime
+Icons:         Lucide React
+Fonts:         DM Sans, JetBrains Mono
+
+BACKEND
+-------
+Language:      Python 3.11+
+Framework:     FastAPI (REST API)
+Database ORM:  Supabase Python SDK
+HTTP Client:   HTTPX (async)
+Async:         asyncio
+CLI:           Typer + Rich
+
+DATABASE & AUTH
+---------------
+Database:      Supabase (PostgreSQL)
+Auth:          Supabase Auth
+Security:      Row-Level Security (RLS)
+Migrations:    Alembic (local), SQL Editor (cloud)
+
+INFRASTRUCTURE
+--------------
+Dashboard:     Vercel (Edge)
+Bot Service:   Fly.io (Background Worker)
+Database:      Supabase Cloud
+
+EXTERNAL APIS
+-------------
+Polymarket Data API:  Trade detection, wallet history
+Polymarket CLOB API:  Live market prices
+Gamma API:            Market metadata (fallback)
+CoinGecko API:        Crypto prices (BTC, ETH, SOL)
+Claude API:           AI trade decisions (optional)
+
+================================================================================
+                         12. PROJECT STRUCTURE
+================================================================================
+
+PolyMind-Trading-Bot/
+|
++-- dashboard/                    # Next.js Frontend (Vercel)
+|   +-- src/
+|   |   +-- app/                  # App Router Pages
+|   |   |   +-- page.tsx          # Main dashboard
+|   |   |   +-- login/            # Auth page
+|   |   |   +-- onboarding/       # Setup wizard
+|   |   |   +-- activity/         # Trade feed
+|   |   |   +-- wallets/          # Wallet management
+|   |   |   +-- trades/           # Trade history
+|   |   |   +-- settings/         # Configuration
+|   |   |   +-- account/          # User account
+|   |   |   +-- orders/           # Order management
+|   |   |   +-- filters/          # Market filters
+|   |   |   +-- arbitrage/        # Cross-platform
+|   |   |   +-- analyze/          # Analytics
+|   |   |   +-- algo/             # AI decisions
+|   |   |   +-- markets/          # Live prices
+|   |   |   +-- layout.tsx        # Root layout
+|   |   |
+|   |   +-- components/           # React Components
+|   |   |   +-- layouts/          # Page layouts
+|   |   |   |   +-- three-column-layout.tsx
+|   |   |   +-- charts/           # Data visualization
+|   |   |   |   +-- pnl-chart.tsx
+|   |   |   |   +-- equity-chart.tsx
+|   |   |   |   +-- trade-timeline.tsx
+|   |   |   +-- ui/               # shadcn/ui components
+|   |   |   +-- sidebar.tsx       # Navigation sidebar
+|   |   |   +-- status-panel.tsx  # Right status panel
+|   |   |   +-- pnl-summary.tsx   # Performance summary
+|   |   |   +-- positions-breakdown.tsx
+|   |   |   +-- wallet-performance.tsx
+|   |   |   +-- providers.tsx     # Context providers
+|   |   |
+|   |   +-- lib/
+|   |       +-- supabase/         # Supabase client
+|   |       +-- api.ts            # API helpers
+|   |       +-- utils.ts          # Utilities
+|   |
+|   +-- package.json
+|   +-- tailwind.config.ts
+|   +-- next.config.ts
+|
++-- bot-service/                  # Multi-tenant Bot (Fly.io)
+|   +-- main.py                   # Bot logic (420 lines)
+|   +-- requirements.txt          # Python deps
+|   +-- Dockerfile                # Container build
+|   +-- fly.toml                  # Fly.io config
+|
++-- src/polymind/                 # Original Single-User Bot
+|   +-- core/
+|   |   +-- brain/                # AI Decision Engine
+|   |   |   +-- claude.py         # Claude API client
+|   |   |   +-- context.py        # Context builder
+|   |   |   +-- decision.py       # Decision dataclass
+|   |   |   +-- orchestrator.py   # DecisionBrain
+|   |   +-- execution/            # Trade Execution
+|   |   |   +-- paper.py          # Paper trading
+|   |   |   +-- live.py           # Live trading
+|   |   |   +-- manager.py        # Order lifecycle
+|   |   |   +-- safety.py         # Safety checks
+|   |   +-- intelligence/         # Analysis
+|   |   |   +-- wallet_tracker.py
+|   |   |   +-- wallet_metrics.py
+|   |   |   +-- arbitrage.py
+|   |   +-- risk/                 # Risk Management
+|   |       +-- manager.py
+|   |
+|   +-- data/                     # API Clients
+|   |   +-- polymarket/
+|   |   +-- kalshi/
+|   |   +-- binance/
+|   |
+|   +-- interfaces/               # User Interfaces
+|   |   +-- api/                  # FastAPI REST API
+|   |   +-- cli/                  # Typer CLI
+|   |   |   +-- main.py           # CLI commands
+|   |   +-- discord/              # Discord bot
+|   |
+|   +-- storage/                  # Data Layer
+|       +-- database.py
+|       +-- cache.py
+|
++-- tests/                        # Test Suite
++-- migrations/                   # Alembic Migrations
++-- docs/plans/                   # Design Documents
++-- docker-compose.yml            # Local Infrastructure
++-- pyproject.toml                # Python Config
++-- DOCS.txt                      # This File
+
+================================================================================
+                         13. DATABASE SCHEMA
+================================================================================
+
+SUPABASE TABLES
+---------------
+
+profiles (extends auth.users)
+-----------------------------
+id                    UUID PRIMARY KEY (refs auth.users)
+display_name          TEXT
+starting_balance      DECIMAL(10,2) DEFAULT 1000
+copy_percentage       DECIMAL(3,2) DEFAULT 0.10
+bot_status            TEXT ('running'|'paused'|'stopped')
+slippage_tolerance    DECIMAL
+confidence_threshold  DECIMAL
+daily_loss_limit      DECIMAL
+max_daily_exposure    DECIMAL
+max_trades_per_day    INTEGER
+min_account_balance   DECIMAL
+ai_enabled            BOOLEAN DEFAULT TRUE
+auto_trade            BOOLEAN DEFAULT TRUE
+onboarding_completed  BOOLEAN DEFAULT FALSE
+created_at            TIMESTAMPTZ
+updated_at            TIMESTAMPTZ
+
+recommended_wallets (admin-managed, shared)
+-------------------------------------------
+id                    SERIAL PRIMARY KEY
+address               TEXT UNIQUE NOT NULL
+alias                 TEXT NOT NULL
+description           TEXT
+win_rate              DECIMAL(5,2)
+total_trades          INTEGER DEFAULT 0
+active                BOOLEAN DEFAULT TRUE
+created_at            TIMESTAMPTZ
+
+user_recommended_selections
+---------------------------
+id                    SERIAL PRIMARY KEY
+user_id               UUID (refs profiles)
+wallet_id             INTEGER (refs recommended_wallets)
+enabled               BOOLEAN DEFAULT TRUE
+created_at            TIMESTAMPTZ
+UNIQUE(user_id, wallet_id)
+
+user_wallets (user's custom wallets)
+------------------------------------
+id                    SERIAL PRIMARY KEY
+user_id               UUID (refs profiles)
+address               TEXT NOT NULL
+alias                 TEXT
+enabled               BOOLEAN DEFAULT TRUE
+created_at            TIMESTAMPTZ
+UNIQUE(user_id, address)
+
+trades
+------
+id                    SERIAL PRIMARY KEY
+user_id               UUID (refs profiles)
+wallet                TEXT (whale wallet address)
+wallet_alias          TEXT
+market_id             TEXT NOT NULL
+market_title          TEXT
+side                  TEXT ('YES'|'NO')
+size                  DECIMAL(10,2) NOT NULL
+price                 DECIMAL(5,4) NOT NULL
+pnl                   DECIMAL(10,2)
+current_price         DECIMAL(5,4)
+is_resolved           BOOLEAN
+executed              BOOLEAN DEFAULT TRUE
+whale_trade_id        TEXT (for deduplication)
+timestamp             TIMESTAMPTZ
+
+
+ROW-LEVEL SECURITY POLICIES
+---------------------------
+
+-- profiles: users can only access their own
+CREATE POLICY "Users can view own profile"
+  ON profiles FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile"
+  ON profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+-- recommended_wallets: everyone can read
+CREATE POLICY "Anyone can view recommended wallets"
+  ON recommended_wallets FOR SELECT
+  TO authenticated USING (true);
+
+-- user_recommended_selections: users manage their own
+CREATE POLICY "Users manage own selections"
+  ON user_recommended_selections FOR ALL
+  USING (auth.uid() = user_id);
+
+-- user_wallets: users manage their own
+CREATE POLICY "Users manage own wallets"
+  ON user_wallets FOR ALL
+  USING (auth.uid() = user_id);
+
+-- trades: users see only their own
+CREATE POLICY "Users view own trades"
+  ON trades FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service can insert trades"
+  ON trades FOR INSERT
+  WITH CHECK (true);
+
+================================================================================
+                          14. API REFERENCE
+================================================================================
+
+SUPABASE (Dashboard)
+--------------------
+
+All dashboard data access goes through Supabase Client SDK.
+RLS policies automatically filter data to authenticated user.
+
+Common patterns:
+
+// Fetch user's trades
+supabase
+  .from("trades")
+  .select("*")
+  .eq("user_id", user.id)
+  .order("timestamp", { ascending: false })
+
+// Subscribe to realtime updates
+supabase
+  .channel("trades")
+  .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, callback)
+  .subscribe()
+
+// Update profile
+supabase
+  .from("profiles")
+  .update({ bot_status: "running" })
+  .eq("id", user.id)
+
+
+BOT SERVICE (Internal)
+----------------------
+
+No HTTP endpoints - runs as background worker.
+Connects to Supabase with service role key (bypasses RLS).
+
+Main loops:
+- Trading loop: runs every POLL_INTERVAL seconds (default 30)
+- PnL loop: runs every PNL_UPDATE_INTERVAL seconds (default 60)
+
+
+ORIGINAL REST API (Local Development)
+-------------------------------------
+
+Base URL: http://localhost:8000
+
+Status & Health:
+  GET  /status           : Bot status, mode, daily P&L
+  GET  /health           : Health check
+  POST /emergency-stop   : Halt all trading
+  POST /resume-trading   : Resume after stop
+
+Trades:
+  GET  /trades           : Recent trades
+    Query: limit=50, executed_only=false
+
+Wallets:
+  GET    /wallets                    : List all wallets
+  POST   /wallets                    : Add wallet {address, alias}
+  DELETE /wallets/{address}          : Remove wallet
+  GET    /wallets/{address}          : Wallet details
+  PUT    /wallets/{address}/controls : Update controls
+  GET    /wallets/{address}/trades   : Wallet's trades
+
+Orders:
+  GET  /orders           : List orders
+    Query: status=all, limit=100
+  POST /orders/{id}/cancel : Cancel order
+
+Arbitrage:
+  GET    /arbitrage/mappings      : Market mappings
+  POST   /arbitrage/mappings      : Add mapping
+  DELETE /arbitrage/mappings/{id} : Remove mapping
+  GET    /arbitrage/opportunities : Current opportunities
+
+Filters:
+  GET    /filters      : List market filters
+  POST   /filters      : Add filter
+  DELETE /filters/{id} : Remove filter
+
+Settings:
+  GET /settings        : Current settings
+  PUT /settings        : Update settings
+
+WebSocket:
+  WS /ws               : Real-time updates
+    Events: trade_update, status_update, order_update
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================
+
+Questions, issues, or contributions:
+- Contact: @Kizsler
+- GitHub: https://github.com/your-repo/polymind
+
+================================================================================

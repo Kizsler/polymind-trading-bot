@@ -8,8 +8,8 @@ primary_region = 'iad'
 
 [build]
   [build.args]
-    NEXT_PUBLIC_SUPABASE_URL = "https://fxeztbneqwkkgphdihix.supabase.co"
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZXp0Ym5lcXdra2dwaGRpaGl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY1NTIwOTksImV4cCI6MjA1MjEyODA5OX0.yOK_5N8wZzv8P6kDykPPxuRAfkNPXD2Oo5qS8BZ3XYY"
+    NEXT_PUBLIC_SUPABASE_URL = "https://mfmtowyjxhpwamdbdjgv.supabase.co"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mbXRvd3lqeGhwd2FtZGJkamd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwOTU3ODEsImV4cCI6MjA4MzY3MTc4MX0.GGj9-Jv6nlk09whBaxACo1VDe5hpcUuPn5uBrHvyGXE"
 
 [http_service]
   internal_port = 3000
