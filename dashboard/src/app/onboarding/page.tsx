@@ -90,7 +90,7 @@ export default function OnboardingPage() {
 
       if (wallets && wallets.length > 0) {
         setRecommendedWallets(wallets);
-        setSelectedWallets(wallets.map((w) => w.id)); // Select all by default
+        setSelectedWallets(wallets.map((w: RecommendedWallet) => w.id)); // Select all by default
       }
     };
 
@@ -125,17 +125,17 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
-      // Update profile with starting balance
+      // Upsert profile with starting balance (handles OAuth users without existing profile)
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          id: userId,
           starting_balance: selectedBalance,
           copy_percentage: 0.1,
-          bot_status: "running",
+          bot_status: "stopped",
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId);
+        }, { onConflict: 'id' });
 
       if (profileError) {
         console.error("Profile update error:", profileError);
@@ -165,8 +165,8 @@ export default function OnboardingPage() {
         if (customError) console.error("Custom wallets error:", customError);
       }
 
-      // Redirect to dashboard
-      router.push("/");
+      // Redirect to dashboard (full reload to refresh profile)
+      window.location.href = "/";
     } catch (error) {
       console.error("Onboarding error:", error);
       alert("Error completing onboarding. Check console for details.");

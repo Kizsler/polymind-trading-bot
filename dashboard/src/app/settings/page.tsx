@@ -17,11 +17,13 @@ import {
   Key,
   Loader2,
   Lock,
+  LogOut,
   Play,
   Save,
   Shield,
   Zap,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -37,22 +39,35 @@ interface TradeSettings {
 }
 
 export default function SettingsPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Local state for form
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (err) {
+      console.error("Failed to logout:", err);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Local state for form - initialize from profile when available
   const [formData, setFormData] = useState<TradeSettings>({
-    copy_percentage: 0.1,
-    max_daily_exposure: 500,
-    max_trades_per_day: 10,
-    min_account_balance: 100,
-    ai_enabled: true,
-    confidence_threshold: 0.7,
-    auto_trade: true,
+    copy_percentage: profile?.copy_percentage ?? 0.1,
+    max_daily_exposure: profile?.max_daily_exposure ?? 500,
+    max_trades_per_day: profile?.max_trades_per_day ?? 10,
+    min_account_balance: profile?.min_account_balance ?? 100,
+    ai_enabled: profile?.ai_enabled ?? true,
+    confidence_threshold: profile?.confidence_threshold ?? 0.7,
+    auto_trade: profile?.auto_trade ?? true,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Notification settings (local only for now)
   const [discordEnabled, setDiscordEnabled] = useState(false);
@@ -61,10 +76,10 @@ export default function SettingsPage() {
   const [notifyOnError, setNotifyOnError] = useState(true);
 
   // Emergency stop state
-  const [isEmergencyStopped, setIsEmergencyStopped] = useState(false);
+  const [isEmergencyStopped, setIsEmergencyStopped] = useState(profile?.bot_status === "stopped");
   const [isStopLoading, setIsStopLoading] = useState(false);
 
-  // Load settings from profile
+  // Sync form data when profile loads
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -77,7 +92,6 @@ export default function SettingsPage() {
         auto_trade: profile.auto_trade ?? true,
       });
       setIsEmergencyStopped(profile.bot_status === "stopped");
-      setIsLoading(false);
     }
   }, [profile]);
 
@@ -177,7 +191,7 @@ export default function SettingsPage() {
         )}
 
         {/* Loading State */}
-        {user && isLoading && (
+        {authLoading && (
           <Card className="mb-8 bg-secondary/50 border-border">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -188,7 +202,7 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        {user && !isLoading && (
+        {user && !authLoading && (
           <Tabs defaultValue="trading" className="space-y-6">
             <TabsList className="bg-secondary">
               <TabsTrigger value="trading" className="gap-2">
@@ -586,7 +600,7 @@ export default function SettingsPage() {
         )}
 
         {/* Save Button */}
-        {user && !isLoading && (
+        {user && !authLoading && (
           <div className="mt-8 flex justify-end gap-3">
             {saveSuccess && (
               <div className="flex items-center gap-2 text-profit">
@@ -608,6 +622,49 @@ export default function SettingsPage() {
               )}
             </Button>
           </div>
+        )}
+
+        {/* Account Section */}
+        {user && !authLoading && (
+          <Card className="mt-8 bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-muted-foreground" />
+                Account
+              </CardTitle>
+              <CardDescription>
+                Manage your account session
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Sign Out</p>
+                  <p className="text-sm text-muted-foreground">
+                    Log out of your account on this device
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Signing out...
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </ThreeColumnLayout>

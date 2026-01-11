@@ -322,6 +322,19 @@ async def process_trade_for_user(
             return None
 
 
+async def get_user_current_balance(supabase: Client, user: dict) -> float:
+    """Calculate user's current balance (starting + realized PnL)"""
+    starting_balance = user.get("starting_balance", 1000)
+
+    # Get total PnL from executed trades
+    response = supabase.table("trades").select("pnl").eq(
+        "user_id", user["id"]
+    ).eq("executed", True).execute()
+
+    total_pnl = sum(t.get("pnl", 0) or 0 for t in (response.data or []))
+    return starting_balance + total_pnl
+
+
 async def run_trading_cycle(supabase: Client):
     """Run one cycle of trade monitoring for all users"""
     try:
@@ -371,6 +384,14 @@ async def run_trading_cycle(supabase: Client):
                 # Find users tracking this wallet and execute paper trades
                 for user in users:
                     if user["id"] in user_ids:
+                        # Check minimum balance threshold
+                        min_balance = user.get("min_account_balance", 0)
+                        if min_balance > 0:
+                            current_balance = await get_user_current_balance(supabase, user)
+                            if current_balance <= min_balance:
+                                logger.info(f"User {user['id'][:8]} below min balance (${current_balance:.2f} <= ${min_balance:.2f}), skipping trade")
+                                continue
+
                         await process_trade_for_user(supabase, user, trade, wallet)
 
     except Exception as e:

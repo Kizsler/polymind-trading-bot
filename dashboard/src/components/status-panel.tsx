@@ -27,7 +27,7 @@ interface Trade {
 }
 
 export function StatusPanel() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
 
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -90,13 +90,9 @@ export function StatusPanel() {
 
     const fetchPrices = async () => {
       try {
-        const res = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true",
-          {
-            signal: controller.signal,
-            headers: { "Accept": "application/json" }
-          }
-        );
+        const res = await fetch("/api/crypto-prices", {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setCryptoPrices([
@@ -119,11 +115,22 @@ export function StatusPanel() {
     };
   }, []);
 
-  // Get values from profile
-  const startingBalance = profile?.starting_balance || 1000;
-  const copyPercentage = profile?.copy_percentage || 0.1;
+  // Get values from profile - only use real values, no fallbacks
+  const startingBalance = profile?.starting_balance ?? 0;
+  const copyPercentage = profile?.copy_percentage ?? 0;
   const isRunning = profile?.bot_status === "running";
   const totalTrades = trades.length;
+
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <aside className="w-80 h-screen bg-card/30 border-l border-border p-6 flex flex-col gap-6 overflow-auto">
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </aside>
+    );
+  }
 
   const handleToggleBot = async () => {
     if (!user) return;

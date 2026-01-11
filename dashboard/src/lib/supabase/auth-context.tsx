@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User } from "@supabase/supabase-js";
+import { User, Session } from "@supabase/supabase-js";
 import { createClient } from "./client";
 
 interface Profile {
@@ -35,12 +35,13 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
 });
 
+// Get singleton client outside component
+const supabase = createClient();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const supabase = createClient();
 
   const refreshProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -55,42 +56,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    let cancelled = false;
 
-      if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        setProfile(data);
+    const init = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (cancelled) return;
+
+        setUser(user);
+
+        if (user) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+
+          if (!cancelled) {
+            setProfile(data);
+          }
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
       }
 
-      setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+      }
     };
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event: string, session: Session | null) => {
+        if (cancelled) return;
+
         setUser(session?.user ?? null);
+
         if (session?.user) {
           const { data } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", session.user.id)
             .single();
-          setProfile(data);
+
+          if (!cancelled) {
+            setProfile(data);
+          }
         } else {
           setProfile(null);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();

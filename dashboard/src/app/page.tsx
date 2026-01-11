@@ -30,7 +30,7 @@ interface Trade {
 }
 
 export default function DashboardPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
 
@@ -62,9 +62,10 @@ export default function DashboardPage() {
     };
   }, [user, supabase]);
 
-  const startingBalance = profile?.starting_balance || 1000;
+  const startingBalance = profile?.starting_balance ?? 0;
 
   // Compute PnL data from real trades grouped by day
+  // NOTE: Hooks must be called before any conditional returns
   const pnlData = useMemo(() => {
     if (!trades || trades.length === 0) {
       // Return empty placeholder for last 14 days
@@ -141,6 +142,17 @@ export default function DashboardPage() {
     }
     return data;
   }, [trades, startingBalance]);
+
+  // Show loading until auth is ready
+  if (authLoading) {
+    return (
+      <ThreeColumnLayout>
+        <div className="flex items-center justify-center h-64">
+          <Search className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </ThreeColumnLayout>
+    );
+  }
 
   return (
     <ThreeColumnLayout>

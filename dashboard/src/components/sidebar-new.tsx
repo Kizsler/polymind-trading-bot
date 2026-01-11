@@ -11,7 +11,6 @@ import {
   GitCompare,
   TrendingUp,
   Settings,
-  HelpCircle,
   Zap,
 } from "lucide-react";
 
@@ -36,7 +35,6 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { name: "Help Center", href: "/help", icon: HelpCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

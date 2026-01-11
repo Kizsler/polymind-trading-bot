@@ -28,7 +28,7 @@ interface Trade {
 }
 
 export default function AnalyzePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,9 +66,10 @@ export default function AnalyzePage() {
     };
   }, [user, supabase]);
 
-  const startingBalance = profile?.starting_balance || 1000;
+  const startingBalance = profile?.starting_balance ?? 0;
 
   // Compute stats from real trades
+  // NOTE: Hooks must be called before any conditional returns
   const stats = useMemo(() => {
     if (!trades || trades.length === 0) {
       return {
@@ -161,6 +162,17 @@ export default function AnalyzePage() {
     }
     return data;
   }, [trades, startingBalance]);
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <ThreeColumnLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </ThreeColumnLayout>
+    );
+  }
 
   return (
     <ThreeColumnLayout>

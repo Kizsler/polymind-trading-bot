@@ -25,7 +25,7 @@ interface Trade {
 }
 
 export function PnLSummary() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +82,21 @@ export function PnLSummary() {
 
   const totalPnl = parseFloat(pnlData.total_pnl);
   const isProfitable = totalPnl > 0;
-  const startingBalance = profile?.starting_balance || 1000;
+  const startingBalance = profile?.starting_balance ?? 0;
+
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <Card className="glass border-border">
+        <CardContent className="py-12">
+          <div className="flex items-center justify-center gap-3">
+            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="glass border-border">
