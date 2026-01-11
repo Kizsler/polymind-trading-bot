@@ -8,13 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertCircle,
   AlertOctagon,
   Bell,
@@ -23,26 +16,43 @@ import {
   DollarSign,
   Key,
   Loader2,
+  Lock,
   Play,
   Save,
   Shield,
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import useSWR from "swr";
-import { api, fetcher, Settings } from "@/lib/api";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
+
+interface TradeSettings {
+  copy_percentage: number;
+  max_daily_exposure: number;
+  max_trades_per_day: number;
+  min_account_balance: number;
+  ai_enabled: boolean;
+  confidence_threshold: number;
+  auto_trade: boolean;
+}
 
 export default function SettingsPage() {
-  // Fetch settings from API
-  const { data: settings, error, isLoading, mutate } = useSWR<Settings>(
-    "/settings",
-    fetcher
-  );
+  const { user, profile } = useAuth();
+  const supabase = createClient();
 
-  // Local state for form (initialized from API data)
-  const [formData, setFormData] = useState<Partial<Settings>>({});
+  // Local state for form
+  const [formData, setFormData] = useState<TradeSettings>({
+    copy_percentage: 0.1,
+    max_daily_exposure: 500,
+    max_trades_per_day: 10,
+    min_account_balance: 100,
+    ai_enabled: true,
+    confidence_threshold: 0.7,
+    auto_trade: true,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Notification settings (local only for now)
   const [discordEnabled, setDiscordEnabled] = useState(false);
@@ -54,17 +64,31 @@ export default function SettingsPage() {
   const [isEmergencyStopped, setIsEmergencyStopped] = useState(false);
   const [isStopLoading, setIsStopLoading] = useState(false);
 
-  // Check emergency stop status on load
+  // Load settings from profile
   useEffect(() => {
-    api.getStatus().then((status) => {
-      setIsEmergencyStopped(status.emergency_stop ?? false);
-    }).catch(() => {});
-  }, []);
+    if (profile) {
+      setFormData({
+        copy_percentage: profile.copy_percentage ?? 0.1,
+        max_daily_exposure: profile.max_daily_exposure ?? 500,
+        max_trades_per_day: profile.max_trades_per_day ?? 10,
+        min_account_balance: profile.min_account_balance ?? 100,
+        ai_enabled: profile.ai_enabled ?? true,
+        confidence_threshold: profile.confidence_threshold ?? 0.7,
+        auto_trade: profile.auto_trade ?? true,
+      });
+      setIsEmergencyStopped(profile.bot_status === "stopped");
+      setIsLoading(false);
+    }
+  }, [profile]);
 
   const handleEmergencyStop = async () => {
+    if (!user) return;
     setIsStopLoading(true);
     try {
-      await api.emergencyStop();
+      await supabase
+        .from("profiles")
+        .update({ bot_status: "stopped" })
+        .eq("id", user.id);
       setIsEmergencyStopped(true);
     } catch (err) {
       console.error("Failed to activate emergency stop:", err);
@@ -74,9 +98,13 @@ export default function SettingsPage() {
   };
 
   const handleResumeTrading = async () => {
+    if (!user) return;
     setIsStopLoading(true);
     try {
-      await api.resumeTrading();
+      await supabase
+        .from("profiles")
+        .update({ bot_status: "running" })
+        .eq("id", user.id);
       setIsEmergencyStopped(false);
     } catch (err) {
       console.error("Failed to resume trading:", err);
@@ -85,19 +113,26 @@ export default function SettingsPage() {
     }
   };
 
-  // Sync form data when settings load
-  useEffect(() => {
-    if (settings) {
-      setFormData(settings);
-    }
-  }, [settings]);
-
   const handleSave = async () => {
+    if (!user) return;
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      await api.updateSettings(formData);
-      await mutate();
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          copy_percentage: formData.copy_percentage,
+          max_daily_exposure: formData.max_daily_exposure,
+          max_trades_per_day: formData.max_trades_per_day,
+          min_account_balance: formData.min_account_balance,
+          ai_enabled: formData.ai_enabled,
+          confidence_threshold: formData.confidence_threshold,
+          auto_trade: formData.auto_trade,
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -107,9 +142,11 @@ export default function SettingsPage() {
     }
   };
 
-  const updateField = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+  const updateField = <K extends keyof TradeSettings>(key: K, value: TradeSettings[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
+
+  const startingBalance = profile?.starting_balance ?? 1000;
 
   return (
     <ThreeColumnLayout>
@@ -122,16 +159,16 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Error State */}
-        {error && (
+        {/* Not logged in state */}
+        {!user && (
           <Card className="mb-8 bg-loss/10 border-loss/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-loss" />
                 <div>
-                  <p className="font-medium text-loss">API Connection Error</p>
+                  <p className="font-medium text-loss">Not Logged In</p>
                   <p className="text-sm text-muted-foreground">
-                    Unable to load settings. Make sure the API server is running.
+                    Please log in to access your settings.
                   </p>
                 </div>
               </div>
@@ -140,7 +177,7 @@ export default function SettingsPage() {
         )}
 
         {/* Loading State */}
-        {isLoading && !settings && (
+        {user && isLoading && (
           <Card className="mb-8 bg-secondary/50 border-border">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -151,509 +188,427 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        <Tabs defaultValue="trading" className="space-y-6">
-          <TabsList className="bg-secondary">
-            <TabsTrigger value="trading" className="gap-2">
-              <DollarSign className="h-4 w-4" />
-              Trading
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
-              <Bot className="h-4 w-4" />
-              AI Engine
-            </TabsTrigger>
-            <TabsTrigger value="risk" className="gap-2">
-              <Shield className="h-4 w-4" />
-              Risk Limits
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4" />
-              Notifications
-            </TabsTrigger>
-            <TabsTrigger value="api" className="gap-2">
-              <Key className="h-4 w-4" />
-              API Keys
-            </TabsTrigger>
-          </TabsList>
+        {user && !isLoading && (
+          <Tabs defaultValue="trading" className="space-y-6">
+            <TabsList className="bg-secondary">
+              <TabsTrigger value="trading" className="gap-2">
+                <DollarSign className="h-4 w-4" />
+                Trading
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-2">
+                <Bot className="h-4 w-4" />
+                AI Engine
+              </TabsTrigger>
+              <TabsTrigger value="risk" className="gap-2">
+                <Shield className="h-4 w-4" />
+                Risk Limits
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-2">
+                <Bell className="h-4 w-4" />
+                Notifications
+              </TabsTrigger>
+              <TabsTrigger value="api" className="gap-2">
+                <Key className="h-4 w-4" />
+                API Keys
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Trading Settings */}
-          <TabsContent value="trading">
-            <div className="grid gap-6">
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-primary" />
-                    Trading Mode
-                  </CardTitle>
-                  <CardDescription>
-                    Choose between paper trading (simulated) or live trading
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Current Mode</p>
-                      <p className="text-sm text-muted-foreground">
-                        Paper trading uses simulated funds
-                      </p>
+            {/* Trading Settings */}
+            <TabsContent value="trading">
+              <div className="grid gap-6">
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Trading Mode
+                    </CardTitle>
+                    <CardDescription>
+                      Paper trading mode - all trades are simulated
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Current Mode</p>
+                        <p className="text-sm text-muted-foreground">
+                          Paper trading uses simulated funds
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="border-violet-500/30 text-violet-400">
+                        Paper Mode
+                      </Badge>
                     </div>
-                    <Select
-                      value={formData.trading_mode || "paper"}
-                      onValueChange={(value) => updateField("trading_mode", value)}
-                    >
-                      <SelectTrigger className="w-40 bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="paper">
-                          <span className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-profit" />
-                            Paper
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="live">
-                          <span className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-loss" />
-                            Live
-                          </span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {formData.trading_mode === "live" && (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-loss/10 border border-loss/30">
-                      <AlertCircle className="h-4 w-4 text-loss" />
-                      <p className="text-sm text-loss">
-                        Live trading uses real funds. Ensure you understand the risks.
-                      </p>
+                    <div className="flex items-center justify-between pt-4 border-t border-border">
+                      <div>
+                        <p className="font-medium">Auto-Trade</p>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically execute AI-approved trades
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.auto_trade}
+                        onCheckedChange={(checked) => updateField("auto_trade", checked)}
+                      />
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
-                    <div>
-                      <p className="font-medium">Auto-Trade</p>
-                      <p className="text-sm text-muted-foreground">
-                        Automatically execute AI-approved trades
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.auto_trade ?? true}
-                      onCheckedChange={(checked) => updateField("auto_trade", checked)}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle>Position Sizing</CardTitle>
-                  <CardDescription>
-                    Control how much capital is used per trade
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lock className="h-5 w-5 text-amber-500" />
+                      Paper Trading Balance
+                    </CardTitle>
+                    <CardDescription>
+                      Your virtual starting balance for paper trading
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">
-                        Max Position Size ($)
+                        Starting Balance ($)
                       </label>
                       <Input
                         type="number"
-                        value={formData.max_position_size ?? 100}
-                        onChange={(e) => updateField("max_position_size", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
+                        value={startingBalance}
+                        disabled
+                        className="mt-1.5 bg-secondary/50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Maximum amount per single trade
+                      <p className="text-xs text-amber-400 mt-2 flex items-center gap-1.5">
+                        <Lock className="h-3 w-3" />
+                        If wanting a higher or lower amount contact @Kizsler
                       </p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Max Daily Exposure ($)
-                      </label>
-                      <Input
-                        type="number"
-                        value={formData.max_daily_exposure ?? 2000}
-                        onChange={(e) => updateField("max_daily_exposure", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Total open position limit per day
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                  </CardContent>
+                </Card>
 
-          {/* AI Settings */}
-          <TabsContent value="ai">
-            <div className="grid gap-6">
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-primary" />
-                    AI Decision Engine
-                  </CardTitle>
-                  <CardDescription>
-                    Configure how the AI evaluates and filters trades
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">AI Filtering</p>
-                      <p className="text-sm text-muted-foreground">
-                        Use AI to evaluate each trade before copying
-                      </p>
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle>Position Sizing</CardTitle>
+                    <CardDescription>
+                      Control how much capital is used per trade
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Copy Percentage (%)
+                        </label>
+                        <Input
+                          type="number"
+                          step="5"
+                          min="1"
+                          max="200"
+                          value={(formData.copy_percentage * 100).toFixed(0)}
+                          onChange={(e) => updateField("copy_percentage", parseFloat(e.target.value) / 100)}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          What % of detected trade size to copy
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Max Daily Exposure ($)
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.max_daily_exposure}
+                          onChange={(e) => updateField("max_daily_exposure", parseFloat(e.target.value))}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Total open position limit per day
+                        </p>
+                      </div>
                     </div>
-                    <Switch
-                      checked={formData.ai_enabled ?? true}
-                      onCheckedChange={(checked) => updateField("ai_enabled", checked)}
-                    />
-                  </div>
 
-                  {formData.ai_enabled && (
-                    <div className="pt-4 border-t border-border">
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Confidence Threshold
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        value={formData.confidence_threshold ?? 0.70}
-                        onChange={(e) => updateField("confidence_threshold", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Minimum AI confidence (0-1) required to copy a trade
-                      </p>
+                    <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Max Trades Per Day
+                        </label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={formData.max_trades_per_day}
+                          onChange={(e) => updateField("max_trades_per_day", parseInt(e.target.value))}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Maximum number of trades allowed per day
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Min Account Balance ($)
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={formData.min_account_balance}
+                          onChange={(e) => updateField("min_account_balance", parseFloat(e.target.value))}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Stop trading if balance falls below this
+                        </p>
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-          {/* Risk Limits */}
-          <TabsContent value="risk">
-            <div className="grid gap-6">
-              {/* Emergency Stop Card */}
-              <Card className={`border-2 ${isEmergencyStopped ? 'bg-loss/10 border-loss' : 'bg-card border-border'}`}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertOctagon className={`h-5 w-5 ${isEmergencyStopped ? 'text-loss' : 'text-primary'}`} />
-                    Emergency Stop
-                  </CardTitle>
-                  <CardDescription>
-                    Instantly halt all trading activity
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {isEmergencyStopped ? 'Trading is STOPPED' : 'Trading is active'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {isEmergencyStopped
-                          ? 'All trading is halted. Click resume to continue.'
-                          : 'Click the button to immediately stop all trading.'}
+            {/* AI Settings */}
+            <TabsContent value="ai">
+              <div className="grid gap-6">
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bot className="h-5 w-5 text-primary" />
+                      AI Decision Engine
+                    </CardTitle>
+                    <CardDescription>
+                      AI-powered trade filtering and analysis
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-lg font-medium text-muted-foreground">Coming Soon</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Contact <span className="text-primary font-medium">@Kizsler</span> for testing
                       </p>
                     </div>
-                    {isEmergencyStopped ? (
-                      <Button
-                        variant="outline"
-                        className="gap-2 border-profit text-profit hover:bg-profit/10"
-                        onClick={handleResumeTrading}
-                        disabled={isStopLoading}
-                      >
-                        {isStopLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                        Resume Trading
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="destructive"
-                        className="gap-2"
-                        onClick={handleEmergencyStop}
-                        disabled={isStopLoading}
-                      >
-                        {isStopLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <AlertOctagon className="h-4 w-4" />
-                        )}
-                        Emergency Stop
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
-                    Market Filters
-                  </CardTitle>
-                  <CardDescription>
-                    Control which markets the bot will trade on
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Min Probability
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        value={formData.min_probability ?? 0.10}
-                        onChange={(e) => updateField("min_probability", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Skip markets below this probability
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Max Probability
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        value={formData.max_probability ?? 0.90}
-                        onChange={(e) => updateField("max_probability", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Skip markets above this probability
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <p className="font-medium mb-3">Category Filters</p>
-                    <div className="flex flex-wrap gap-2">
-                      {["Crypto", "Politics", "Sports", "Entertainment", "Science"].map(
-                        (category) => (
-                          <Badge
-                            key={category}
-                            variant="outline"
-                            className="cursor-pointer hover:bg-primary/10 hover:border-primary/30"
-                          >
-                            {category}
-                          </Badge>
-                        )
+            {/* Risk Limits */}
+            <TabsContent value="risk">
+              <div className="grid gap-6">
+                {/* Emergency Stop Card */}
+                <Card className={`border-2 ${isEmergencyStopped ? 'bg-loss/10 border-loss' : 'bg-card border-border'}`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertOctagon className={`h-5 w-5 ${isEmergencyStopped ? 'text-loss' : 'text-primary'}`} />
+                      Emergency Stop
+                    </CardTitle>
+                    <CardDescription>
+                      Instantly halt all trading activity
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {isEmergencyStopped ? 'Trading is STOPPED' : 'Trading is active'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {isEmergencyStopped
+                            ? 'All trading is halted. Click resume to continue.'
+                            : 'Click the button to immediately stop all trading.'}
+                        </p>
+                      </div>
+                      {isEmergencyStopped ? (
+                        <Button
+                          variant="outline"
+                          className="gap-2 border-profit text-profit hover:bg-profit/10"
+                          onClick={handleResumeTrading}
+                          disabled={isStopLoading}
+                        >
+                          {isStopLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                          Resume Trading
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          className="gap-2"
+                          onClick={handleEmergencyStop}
+                          disabled={isStopLoading}
+                        >
+                          {isStopLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <AlertOctagon className="h-4 w-4" />
+                          )}
+                          Emergency Stop
+                        </Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Click to enable/disable market categories
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle>Account Protection</CardTitle>
+                    <CardDescription>
+                      Automatic safeguards to protect your capital
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Minimum Account Balance ($)
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.min_account_balance}
+                          onChange={(e) => updateField("min_account_balance", parseFloat(e.target.value))}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Stop trading if balance drops below this
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Max Trades Per Day
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.max_trades_per_day}
+                          onChange={(e) => updateField("max_trades_per_day", parseInt(e.target.value))}
+                          className="mt-1.5 bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Limit number of trades per day
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* Notifications */}
+            <TabsContent value="notifications">
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Loss Protection</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-primary" />
+                    Discord Notifications
+                  </CardTitle>
                   <CardDescription>
-                    Automatic safeguards to protect your capital
+                    Get notified about trades and bot activity
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Daily Loss Limit ($)
-                      </label>
-                      <Input
-                        type="number"
-                        value={formData.daily_loss_limit ?? 500}
-                        onChange={(e) => updateField("daily_loss_limit", parseFloat(e.target.value))}
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Stop trading if daily losses exceed this
+                      <p className="font-medium">Enable Discord</p>
+                      <p className="text-sm text-muted-foreground">
+                        Send notifications to your Discord channel
                       </p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Max Consecutive Losses
-                      </label>
-                      <Input
-                        type="number"
-                        defaultValue="5"
-                        className="mt-1.5 bg-background"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Pause after this many consecutive losses
-                      </p>
+                    <Switch
+                      checked={discordEnabled}
+                      onCheckedChange={setDiscordEnabled}
+                    />
+                  </div>
+
+                  {discordEnabled && (
+                    <div className="pt-4 border-t border-border space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Webhook URL
+                        </label>
+                        <Input
+                          type="password"
+                          placeholder="https://discord.com/api/webhooks/..."
+                          className="mt-1.5 bg-background font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <p className="font-medium">Notify On</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Trade Executed</span>
+                          <Switch
+                            checked={notifyOnTrade}
+                            onCheckedChange={setNotifyOnTrade}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Trade Skipped</span>
+                          <Switch
+                            checked={notifyOnSkip}
+                            onCheckedChange={setNotifyOnSkip}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Errors</span>
+                          <Switch
+                            checked={notifyOnError}
+                            onCheckedChange={setNotifyOnError}
+                          />
+                        </div>
+                      </div>
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* API Keys */}
+            <TabsContent value="api">
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5 text-primary" />
+                    API Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    API keys are managed server-side for security
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+                    <p className="text-sm text-muted-foreground">
+                      API keys for AI and trading integrations are configured on the server.
+                      Contact @Kizsler if you need to modify API settings.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
-
-          {/* Notifications */}
-          <TabsContent value="notifications">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-primary" />
-                  Discord Notifications
-                </CardTitle>
-                <CardDescription>
-                  Get notified about trades and bot activity
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Enable Discord</p>
-                    <p className="text-sm text-muted-foreground">
-                      Send notifications to your Discord channel
-                    </p>
-                  </div>
-                  <Switch
-                    checked={discordEnabled}
-                    onCheckedChange={setDiscordEnabled}
-                  />
-                </div>
-
-                {discordEnabled && (
-                  <div className="pt-4 border-t border-border space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Webhook URL
-                      </label>
-                      <Input
-                        type="password"
-                        placeholder="https://discord.com/api/webhooks/..."
-                        className="mt-1.5 bg-background font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <p className="font-medium">Notify On</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Trade Executed</span>
-                        <Switch
-                          checked={notifyOnTrade}
-                          onCheckedChange={setNotifyOnTrade}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Trade Skipped</span>
-                        <Switch
-                          checked={notifyOnSkip}
-                          onCheckedChange={setNotifyOnSkip}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Errors</span>
-                        <Switch
-                          checked={notifyOnError}
-                          onCheckedChange={setNotifyOnError}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* API Keys */}
-          <TabsContent value="api">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5 text-primary" />
-                  API Configuration
-                </CardTitle>
-                <CardDescription>
-                  API keys are configured via environment variables for security
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Claude API Key
-                  </label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input
-                      type="password"
-                      placeholder="Configured via ANTHROPIC_API_KEY"
-                      disabled
-                      className="bg-background font-mono"
-                    />
-                    <Badge variant="outline" className="text-profit border-profit/30">
-                      Env Var
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Polymarket API Key
-                  </label>
-                  <div className="flex gap-2 mt-1.5">
-                    <Input
-                      type="password"
-                      placeholder="Configured via POLYMARKET_API_KEY"
-                      disabled
-                      className="bg-background font-mono"
-                    />
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Env Var
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Set in .env file for security
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        )}
 
         {/* Save Button */}
-        <div className="mt-8 flex justify-end gap-3">
-          {saveSuccess && (
-            <div className="flex items-center gap-2 text-profit">
-              <CheckCircle className="h-4 w-4" />
-              <span className="text-sm">Settings saved</span>
-            </div>
-          )}
-          <Button className="gap-2" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save Settings
-              </>
+        {user && !isLoading && (
+          <div className="mt-8 flex justify-end gap-3">
+            {saveSuccess && (
+              <div className="flex items-center gap-2 text-profit">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm">Settings saved</span>
+              </div>
             )}
-          </Button>
-        </div>
+            <Button className="gap-2" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save Settings
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </ThreeColumnLayout>
   );

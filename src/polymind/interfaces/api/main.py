@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from polymind import __version__
-from polymind.interfaces.api.routes import arbitrage, filters, health, orders, settings, status, trades, wallets
+from polymind.interfaces.api.routes import arbitrage, filters, health, markets, orders, settings, status, trades, wallets
 from polymind.interfaces.api.websocket import manager
 from polymind.utils.errors import PolymindError
 from polymind.utils.logging import get_logger
@@ -61,6 +61,7 @@ async def general_exception_handler(
 app.include_router(arbitrage.router)
 app.include_router(filters.router)
 app.include_router(health.router)
+app.include_router(markets.router)
 app.include_router(orders.router)
 app.include_router(settings.router)
 app.include_router(status.router)

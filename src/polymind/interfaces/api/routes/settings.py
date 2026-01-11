@@ -22,6 +22,9 @@ class SettingsUpdate(BaseModel):
     min_probability: float | None = None
     max_probability: float | None = None
     daily_loss_limit: float | None = None
+    starting_balance: float | None = None
+    max_slippage: float | None = None
+    copy_percentage: float | None = None
 
 
 @router.get("/settings")

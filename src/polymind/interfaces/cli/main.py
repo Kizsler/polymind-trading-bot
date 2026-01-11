@@ -5,7 +5,9 @@ import asyncio
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt, Confirm, FloatPrompt
 from rich.table import Table
+from rich.text import Text
 
 from polymind import __version__
 from polymind.interfaces.cli.context import get_context
@@ -23,6 +25,170 @@ app.add_typer(wallets_app, name="wallets")
 
 # Rich console for pretty output
 console = Console()
+
+
+def run_startup_configuration() -> dict:
+    """Interactive startup configuration wizard."""
+    console.print()
+    console.print(
+        Panel.fit(
+            "[bold cyan]PolyMind Startup Configuration[/bold cyan]\n"
+            "[dim]Configure your trading parameters before starting[/dim]",
+            border_style="cyan",
+        )
+    )
+    console.print()
+
+    config = {}
+
+    # Trading Mode
+    console.print("[bold]1. Trading Mode[/bold]")
+    mode_choice = Prompt.ask(
+        "  Select mode",
+        choices=["paper", "live"],
+        default="paper",
+    )
+    config["trading_mode"] = mode_choice
+
+    if mode_choice == "live":
+        if not Confirm.ask(
+            "  [bold red]WARNING:[/bold red] Live mode uses REAL money. Continue?",
+            default=False,
+        ):
+            config["trading_mode"] = "paper"
+            console.print("  [yellow]Switched to paper mode[/yellow]")
+
+    console.print()
+
+    # Starting Balance (Paper Trading)
+    console.print("[bold]2. Starting Balance[/bold]")
+    console.print("  [dim]Virtual balance for paper trading simulation[/dim]")
+    starting_balance = FloatPrompt.ask(
+        "  Starting balance ($)",
+        default=1000.0,
+    )
+    config["starting_balance"] = max(100.0, starting_balance)
+    console.print()
+
+    # Slippage Tolerance
+    console.print("[bold]3. Slippage Tolerance[/bold]")
+    console.print("  [dim]Max allowed price slippage before rejecting trade[/dim]")
+    slippage = FloatPrompt.ask(
+        "  Max slippage (%)",
+        default=3.0,
+    )
+    config["max_slippage"] = max(0.1, min(slippage, 20.0)) / 100.0  # Convert to decimal
+    console.print()
+
+    # Trade Size Percentage
+    console.print("[bold]4. Trade Size (Copy Percentage)[/bold]")
+    console.print("  [dim]What % of detected wallet trade to copy[/dim]")
+    trade_pct = FloatPrompt.ask(
+        "  Copy percentage (%)",
+        default=100.0,
+    )
+    config["copy_percentage"] = max(1.0, min(trade_pct, 200.0)) / 100.0
+    console.print()
+
+    # Max Single Trade
+    console.print("[bold]5. Max Single Trade Size[/bold]")
+    console.print("  [dim]Maximum USD per individual trade[/dim]")
+    max_trade = FloatPrompt.ask(
+        "  Max trade size ($)",
+        default=100.0,
+    )
+    config["max_single_trade"] = max(10.0, max_trade)
+    console.print()
+
+    # Daily Loss Limit
+    console.print("[bold]6. Daily Loss Limit[/bold]")
+    console.print("  [dim]Stop trading if daily losses exceed this amount[/dim]")
+    daily_loss = FloatPrompt.ask(
+        "  Daily loss limit ($)",
+        default=500.0,
+    )
+    config["daily_loss_limit"] = max(50.0, daily_loss)
+    console.print()
+
+    # Max Total Exposure
+    console.print("[bold]7. Max Total Exposure[/bold]")
+    console.print("  [dim]Maximum total open positions value[/dim]")
+    max_exposure = FloatPrompt.ask(
+        "  Max exposure ($)",
+        default=2000.0,
+    )
+    config["max_daily_exposure"] = max(100.0, max_exposure)
+    console.print()
+
+    # AI Confidence Threshold
+    console.print("[bold]8. AI Confidence Threshold[/bold]")
+    console.print("  [dim]Minimum AI confidence to execute trade[/dim]")
+    confidence = FloatPrompt.ask(
+        "  Min confidence (%)",
+        default=70.0,
+    )
+    config["confidence_threshold"] = max(10.0, min(confidence, 99.0)) / 100.0
+    console.print()
+
+    # Auto-trade enabled
+    console.print("[bold]9. Auto-Trade[/bold]")
+    auto_trade = Confirm.ask(
+        "  Enable automatic trading?",
+        default=True,
+    )
+    config["auto_trade"] = auto_trade
+    console.print()
+
+    # AI Enabled
+    console.print("[bold]10. AI Decision Engine[/bold]")
+    ai_enabled = Confirm.ask(
+        "  Enable Claude AI for trade decisions?",
+        default=True,
+    )
+    config["ai_enabled"] = ai_enabled
+    console.print()
+
+    return config
+
+
+def display_config_summary(config: dict) -> None:
+    """Display configuration summary."""
+    table = Table(title="Configuration Summary", show_header=True, header_style="bold cyan")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Trading Mode", config["trading_mode"].upper())
+    table.add_row("Starting Balance", f"${config['starting_balance']:,.2f}")
+    table.add_row("Max Slippage", f"{config['max_slippage'] * 100:.1f}%")
+    table.add_row("Copy Percentage", f"{config['copy_percentage'] * 100:.0f}%")
+    table.add_row("Max Trade Size", f"${config['max_single_trade']:,.2f}")
+    table.add_row("Daily Loss Limit", f"${config['daily_loss_limit']:,.2f}")
+    table.add_row("Max Exposure", f"${config['max_daily_exposure']:,.2f}")
+    table.add_row("AI Confidence", f"{config['confidence_threshold'] * 100:.0f}%")
+    table.add_row("Auto-Trade", "Enabled" if config["auto_trade"] else "Disabled")
+    table.add_row("AI Engine", "Enabled" if config["ai_enabled"] else "Disabled")
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+async def save_config_to_cache(config: dict) -> None:
+    """Save configuration to Redis cache."""
+    ctx = await get_context()
+    await ctx.cache.set_mode(config["trading_mode"])
+    await ctx.cache.update_settings({
+        "trading_mode": config["trading_mode"],
+        "starting_balance": config["starting_balance"],
+        "max_slippage": config["max_slippage"],
+        "copy_percentage": config["copy_percentage"],
+        "max_position_size": config["max_single_trade"],
+        "max_daily_exposure": config["max_daily_exposure"],
+        "daily_loss_limit": config["daily_loss_limit"],
+        "confidence_threshold": config["confidence_threshold"],
+        "auto_trade": config["auto_trade"],
+        "ai_enabled": config["ai_enabled"],
+    })
 
 
 def version_callback(value: bool) -> None:
@@ -48,10 +214,53 @@ def main(
 
 
 @app.command()
-def start() -> None:
-    """Start the trading bot."""
+def start(
+    configure: bool = typer.Option(
+        False,
+        "--configure",
+        "-c",
+        help="Run interactive configuration wizard before starting",
+    ),
+    quick: bool = typer.Option(
+        False,
+        "--quick",
+        "-q",
+        help="Skip configuration and use defaults/cached settings",
+    ),
+) -> None:
+    """Start the trading bot.
+
+    By default, prompts for configuration on first run.
+    Use --configure to always show the wizard.
+    Use --quick to skip configuration entirely.
+    """
     from polymind.runner import run_bot
 
+    # Determine if we should run configuration
+    run_config = configure
+
+    if not quick and not configure:
+        # Check if this is first run or user wants to configure
+        if Confirm.ask(
+            "\n[cyan]Configure trading parameters before starting?[/cyan]",
+            default=True,
+        ):
+            run_config = True
+
+    if run_config:
+        # Run interactive configuration
+        config = run_startup_configuration()
+        display_config_summary(config)
+
+        if not Confirm.ask("Start bot with these settings?", default=True):
+            console.print("[yellow]Startup cancelled[/yellow]")
+            raise typer.Exit(0)
+
+        # Save configuration to cache
+        asyncio.run(save_config_to_cache(config))
+        console.print("[green]Configuration saved![/green]")
+
+    console.print()
     console.print(
         Panel.fit(
             "[bold green]Starting PolyMind...[/bold green]\n"
@@ -63,10 +272,23 @@ def start() -> None:
     try:
         run_bot()
     except KeyboardInterrupt:
-        console.print("[yellow]Shutting down...[/yellow]")
+        console.print("\n[yellow]Shutting down...[/yellow]")
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         raise typer.Exit(1)
+
+
+@app.command()
+def configure() -> None:
+    """Configure trading parameters interactively."""
+    config = run_startup_configuration()
+    display_config_summary(config)
+
+    if Confirm.ask("Save these settings?", default=True):
+        asyncio.run(save_config_to_cache(config))
+        console.print("[green]Configuration saved![/green]")
+    else:
+        console.print("[yellow]Configuration not saved[/yellow]")
 
 
 @app.command()

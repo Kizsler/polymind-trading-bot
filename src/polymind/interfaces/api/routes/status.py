@@ -22,12 +22,21 @@ async def status(
     wallets = await db.get_all_wallets()
     stopped = await cache.is_stopped()
 
+    # Get executed trades count
+    executed_trades = await db.get_recent_trades(limit=10000, executed_only=True)
+    total_trades = len(executed_trades)
+
+    # Bot is running if not in paused mode and not emergency stopped
+    is_running = mode != "paused" and not stopped
+
     return {
         "version": __version__,
         "mode": mode,
+        "is_running": is_running,
         "daily_pnl": daily_pnl,
         "open_exposure": exposure,
         "wallet_count": len(wallets),
+        "total_trades": total_trades,
         "emergency_stop": stopped,
     }
 

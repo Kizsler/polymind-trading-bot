@@ -229,6 +229,7 @@ class BotRunner:
             claude_client=claude_client,
             risk_manager=risk_manager,
             executor=executor,
+            cache=self._cache,
         )
 
     def _setup_arbitrage_monitor(self) -> ArbitrageMonitorService | None:

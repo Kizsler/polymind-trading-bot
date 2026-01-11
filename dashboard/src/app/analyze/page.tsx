@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
 import { PnLChart, EquityChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,12 +11,62 @@ import {
   TrendingUp,
   Target,
   Percent,
+  Loader2,
 } from "lucide-react";
-import useSWR from "swr";
-import { fetcher, Trade } from "@/lib/api";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
+
+interface Trade {
+  id: number;
+  market_id: string;
+  side: "YES" | "NO";
+  size: number;
+  price: number;
+  pnl?: number;
+  executed: boolean;
+  timestamp: string;
+}
 
 export default function AnalyzePage() {
-  const { data: trades } = useSWR<Trade[]>("/trades?limit=500", fetcher, { refreshInterval: 30000 });
+  const { user, profile } = useAuth();
+  const supabase = createClient();
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch trades from Supabase
+  useEffect(() => {
+    const fetchTrades = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("executed", true)
+        .order("timestamp", { ascending: true })
+        .limit(500);
+
+      if (data) setTrades(data);
+      setIsLoading(false);
+    };
+
+    fetchTrades();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel("analyze-trades")
+      .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, fetchTrades)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
+
+  const startingBalance = profile?.starting_balance || 1000;
 
   // Compute stats from real trades
   const stats = useMemo(() => {
@@ -38,9 +88,9 @@ export default function AnalyzePage() {
     const totalLosses = Math.abs(losses.reduce((sum, t) => sum + (t.pnl || 0), 0));
 
     // Calculate max drawdown from equity curve
-    let peak = 1000;
+    let peak = startingBalance;
     let maxDD = 0;
-    let equity = 1000;
+    let equity = startingBalance;
     closedTrades.forEach((t) => {
       equity += t.pnl || 0;
       if (equity > peak) peak = equity;
@@ -49,34 +99,25 @@ export default function AnalyzePage() {
     });
 
     return {
-      totalReturn: (totalPnL / 1000) * 100,
+      totalReturn: (totalPnL / startingBalance) * 100,
       winRate: closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : 0,
       profitFactor: totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0,
       maxDrawdown: maxDD,
     };
-  }, [trades]);
+  }, [trades, startingBalance]);
 
   // Compute PnL data from real trades grouped by day
   const pnlData = useMemo(() => {
-    if (!trades || trades.length === 0) {
-      const data = [];
-      const now = new Date();
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        data.push({
-          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-          pnl: 0,
-        });
-      }
-      return data;
-    }
-
     const dailyPnL: Record<string, number> = {};
-    trades.forEach((trade) => {
-      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
-      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
-    });
+
+    if (trades && trades.length > 0) {
+      trades.forEach((trade) => {
+        if (trade.pnl !== undefined && trade.pnl !== null) {
+          const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+          dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+        }
+      });
+    }
 
     const data = [];
     const now = new Date();
@@ -94,30 +135,20 @@ export default function AnalyzePage() {
 
   // Compute equity curve from trades
   const equityData = useMemo(() => {
-    const startingEquity = 1000;
-    if (!trades || trades.length === 0) {
-      const data = [];
-      const now = new Date();
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        data.push({
-          date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-          equity: startingEquity,
-        });
-      }
-      return data;
-    }
-
     const dailyPnL: Record<string, number> = {};
-    trades.forEach((trade) => {
-      const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
-      dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
-    });
+
+    if (trades && trades.length > 0) {
+      trades.forEach((trade) => {
+        if (trade.pnl !== undefined && trade.pnl !== null) {
+          const date = new Date(trade.timestamp).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+          dailyPnL[date] = (dailyPnL[date] || 0) + (trade.pnl || 0);
+        }
+      });
+    }
 
     const data = [];
     const now = new Date();
-    let equity = startingEquity;
+    let equity = startingBalance;
     for (let i = 29; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
@@ -129,7 +160,7 @@ export default function AnalyzePage() {
       });
     }
     return data;
-  }, [trades]);
+  }, [trades, startingBalance]);
 
   return (
     <ThreeColumnLayout>
@@ -151,75 +182,89 @@ export default function AnalyzePage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8 animate-fade-in stagger-2">
+      {/* Loading State */}
+      {isLoading ? (
         <Card className="glass border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Total Return
-              </p>
+          <CardContent className="py-12">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <p className="text-muted-foreground">Loading analytics...</p>
             </div>
-            <p className={`text-2xl font-mono font-bold ${stats.totalReturn >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {stats.totalReturn >= 0 ? "+" : ""}{stats.totalReturn.toFixed(1)}%
-            </p>
           </CardContent>
         </Card>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid gap-4 md:grid-cols-4 mb-8 animate-fade-in stagger-2">
+            <Card className="glass border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Total Return
+                  </p>
+                </div>
+                <p className={`text-2xl font-mono font-bold ${stats.totalReturn >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {stats.totalReturn >= 0 ? "+" : ""}{stats.totalReturn.toFixed(1)}%
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="glass border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="h-4 w-4 text-violet-400" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Win Rate
-              </p>
+            <Card className="glass border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-4 w-4 text-violet-400" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Win Rate
+                  </p>
+                </div>
+                <p className="text-2xl font-mono font-bold">
+                  {stats.winRate.toFixed(1)}%
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="h-4 w-4 text-cyan-400" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Profit Factor
+                  </p>
+                </div>
+                <p className="text-2xl font-mono font-bold">
+                  {stats.profitFactor.toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-fuchsia-400" />
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Max Drawdown
+                  </p>
+                </div>
+                <p className="text-2xl font-mono font-bold text-red-400">
+                  -{stats.maxDrawdown.toFixed(1)}%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts */}
+          <div className="space-y-6">
+            <div className="animate-fade-in stagger-3">
+              <PnLChart data={pnlData} title="Daily P&L ($)" />
             </div>
-            <p className="text-2xl font-mono font-bold">
-              {stats.winRate.toFixed(1)}%
-            </p>
-          </CardContent>
-        </Card>
 
-        <Card className="glass border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Percent className="h-4 w-4 text-cyan-400" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Profit Factor
-              </p>
+            <div className="animate-fade-in stagger-4">
+              <EquityChart data={equityData} title="Portfolio Value ($)" />
             </div>
-            <p className="text-2xl font-mono font-bold">
-              {stats.profitFactor.toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="h-4 w-4 text-fuchsia-400" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Max Drawdown
-              </p>
-            </div>
-            <p className="text-2xl font-mono font-bold text-red-400">
-              -{stats.maxDrawdown.toFixed(1)}%
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="space-y-6">
-        <div className="animate-fade-in stagger-3">
-          <PnLChart data={pnlData} title="Daily Returns (%)" />
-        </div>
-
-        <div className="animate-fade-in stagger-4">
-          <EquityChart data={equityData} title="Portfolio Value" />
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </ThreeColumnLayout>
   );
 }

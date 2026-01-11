@@ -117,10 +117,11 @@ class WalletMonitorService:
         """
         alias = self.get_wallet_alias(signal.wallet)
         logger.info(
-            "Trade detected: wallet={} ({}) market={} side={} size={}",
+            "Trade detected: wallet={} ({}) market={} action={} side={} size={}",
             signal.wallet[:10],
             alias or "unknown",
             signal.market_id[:20] if signal.market_id else "N/A",
+            signal.action.value,
             signal.side,
             signal.size,
         )

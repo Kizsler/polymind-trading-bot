@@ -122,6 +122,9 @@ class Cache:
             "min_probability": 0.10,
             "max_probability": 0.90,
             "daily_loss_limit": 500.0,
+            "starting_balance": 1000.0,
+            "max_slippage": 0.03,
+            "copy_percentage": 1.0,
         }
 
         settings = {}

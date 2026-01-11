@@ -15,6 +15,13 @@ class SignalSource(Enum):
     ARBITRAGE = "arbitrage"
 
 
+class TradeAction(Enum):
+    """Action type for a trade (buy or sell)."""
+
+    BUY = "BUY"
+    SELL = "SELL"
+
+
 @dataclass
 class TradeSignal:
     """Trade signal detected from a tracked wallet.
@@ -26,7 +33,8 @@ class TradeSignal:
     wallet: str
     market_id: str
     token_id: str
-    side: str
+    side: str  # YES or NO (the outcome)
+    action: TradeAction  # BUY or SELL
     size: float
     price: float
     source: SignalSource
@@ -37,13 +45,13 @@ class TradeSignal:
     def dedup_id(self) -> str:
         """Generate unique ID for deduplication.
 
-        The ID is based on wallet, market, side, size, and timestamp
+        The ID is based on wallet, market, side, action, size, and timestamp
         rounded to the nearest minute. Source is excluded so the same
         trade detected from both CLOB and chain will have the same ID.
         """
         ts_rounded = self.timestamp.replace(second=0, microsecond=0)
         key = (
-            f"{self.wallet}:{self.market_id}:{self.side}"
+            f"{self.wallet}:{self.market_id}:{self.side}:{self.action.value}"
             f":{self.size}:{ts_rounded.isoformat()}"
         )
         return hashlib.sha256(key.encode()).hexdigest()[:16]
@@ -61,6 +69,10 @@ class TradeSignal:
         source_str = data["source"]
         source = SignalSource(source_str)
 
+        # Parse action - default to BUY for backwards compatibility
+        action_str = data.get("action", "BUY")
+        action = TradeAction(action_str)
+
         timestamp = data["timestamp"]
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
@@ -70,6 +82,7 @@ class TradeSignal:
             market_id=data["market_id"],
             token_id=data["token_id"],
             side=data["side"],
+            action=action,
             size=float(data["size"]),
             price=float(data["price"]),
             source=source,
@@ -88,6 +101,7 @@ class TradeSignal:
             "market_id": self.market_id,
             "token_id": self.token_id,
             "side": self.side,
+            "action": self.action.value,
             "size": self.size,
             "price": self.price,
             "source": self.source.value,

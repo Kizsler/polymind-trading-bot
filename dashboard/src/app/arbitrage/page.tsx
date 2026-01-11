@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -30,8 +32,12 @@ import {
   TrendingUp,
   Zap,
   RefreshCw,
+  HelpCircle,
+  ArrowLeftRight,
+  DollarSign,
+  Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { api, fetcher, MarketMapping, ArbitrageOpportunity } from "@/lib/api";
 
@@ -43,6 +49,20 @@ export default function ArbitragePage() {
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanTime, setLastScanTime] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Check if first time visiting
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem("arbitrage_welcome_seen");
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  const handleCloseWelcome = () => {
+    localStorage.setItem("arbitrage_welcome_seen", "true");
+    setShowWelcome(false);
+  };
 
   const { data: mappings, error: mappingsError, isLoading: mappingsLoading } = useSWR<MarketMapping[]>(
     "/arbitrage/mappings",
@@ -110,6 +130,67 @@ export default function ArbitragePage() {
   return (
     <ThreeColumnLayout>
       <div>
+        {/* Welcome Dialog for First Time Users */}
+        <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
+          <DialogContent className="bg-card border-border max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <ArrowLeftRight className="h-5 w-5 text-violet-400" />
+                Welcome to Arbitrage
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Profit from price differences across prediction markets
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="flex gap-3">
+                <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                  <HelpCircle className="h-5 w-5 text-violet-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">What is Arbitrage?</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Arbitrage exploits price differences between markets. When the same event is priced differently on Polymarket vs Kalshi, you can profit by buying low on one and selling high on the other.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Example</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    If "BTC hits $100K" is 60% on Polymarket but 65% on Kalshi, buy YES on Polymarket and NO on Kalshi. You profit the 5% spread regardless of outcome.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="h-10 w-10 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <Target className="h-5 w-5 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">How to Use</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    1. Click "Add Mapping" to link matching markets<br />
+                    2. Click "Scan Now" to find opportunities<br />
+                    3. Execute trades when spreads appear
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={handleCloseWelcome} className="w-full">
+                Got it, let's go!
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -124,6 +205,14 @@ export default function ArbitragePage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowWelcome(true)}
+              title="How it works"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               className="gap-2"

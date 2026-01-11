@@ -26,7 +26,7 @@ export interface Trade {
 export interface Status {
   mode: 'paper' | 'live' | 'paused';
   is_running: boolean;
-  wallets_count: number;
+  wallet_count: number;
   daily_pnl: number;
   open_exposure: number;
   total_trades: number;
@@ -60,6 +60,9 @@ export interface Settings {
   min_probability: number;
   max_probability: number;
   daily_loss_limit: number;
+  starting_balance: number;
+  max_slippage: number;
+  copy_percentage: number;
 }
 
 export interface WalletDetail extends Wallet {
@@ -102,6 +105,18 @@ export interface ArbitrageOpportunity {
 export interface ArbitrageScanResponse {
   opportunities: ArbitrageOpportunity[];
   scanned_at: string;
+}
+
+export interface Market {
+  condition_id: string;
+  question: string;
+  description: string;
+  end_date: string | null;
+  resolution_date: string | null;
+  active: boolean;
+  closed: boolean;
+  image?: string;
+  icon?: string;
 }
 
 export interface Order {

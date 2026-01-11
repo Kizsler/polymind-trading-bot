@@ -100,19 +100,37 @@ export function WebSocketProvider({
         }
       };
 
-      ws.onerror = (error) => {
-        console.error("[WebSocket] Error:", error);
+      ws.onerror = () => {
+        // WebSocket errors are typically followed by onclose, so we just log silently
+        // The reconnection logic in onclose will handle recovery
       };
     } catch (err) {
       console.error("[WebSocket] Failed to connect:", err);
       setStatus("disconnected");
+      // Schedule reconnect on connection failure
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectAttemptsRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(connect, delay);
+      }
     }
   }, [url]);
 
   useEffect(() => {
     connect();
 
+    // Reconnect when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && wsRef.current?.readyState !== WebSocket.OPEN) {
+        reconnectAttemptsRef.current = 0; // Reset attempts when user returns
+        connect();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }

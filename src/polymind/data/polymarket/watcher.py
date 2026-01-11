@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from polymind.data.models import SignalSource, TradeSignal
+from polymind.data.models import SignalSource, TradeAction, TradeSignal
 from polymind.data.polymarket.client import PolymarketClient
 from polymind.data.polymarket.data_api import DataAPIClient
 from polymind.utils.logging import get_logger
@@ -73,8 +73,9 @@ class WalletWatcher:
     def parse_trade_event(event: dict[str, Any]) -> TradeSignal:
         """Parse a raw trade event into a TradeSignal.
 
-        Maps BUY side to YES and SELL side to NO.
-        Handles both CLOB API format and Data API format.
+        Properly tracks both:
+        - side: YES or NO (the outcome being traded)
+        - action: BUY or SELL (whether buying or selling that outcome)
 
         Args:
             event: Raw trade event dictionary from the API.
@@ -86,13 +87,17 @@ class WalletWatcher:
         wallet = event.get("proxyWallet") or event.get("maker") or event.get("taker", "")
         wallet = wallet.lower() if wallet else ""
 
-        # Map BUY -> YES, SELL -> NO (or use outcome directly if available)
+        # Get the outcome (YES/NO) - this is which side of the market
         outcome = event.get("outcome", "")
         if outcome:
             side = "YES" if outcome.lower() in ("yes", "up") else "NO"
         else:
-            raw_side = event.get("side", "")
-            side = "YES" if raw_side == "BUY" else "NO"
+            # Fallback: if no outcome, default to YES
+            side = "YES"
+
+        # Get the action (BUY/SELL) - this is the trade direction
+        raw_side = event.get("side", "BUY")
+        action = TradeAction.BUY if raw_side == "BUY" else TradeAction.SELL
 
         # Parse timestamp (can be string or int)
         timestamp_raw = event.get("timestamp", 0)
@@ -114,6 +119,7 @@ class WalletWatcher:
             market_id=market_id,
             token_id=token_id,
             side=side,
+            action=action,
             size=float(event.get("size", 0)),
             price=float(event.get("price", 0)),
             source=SignalSource.CLOB,

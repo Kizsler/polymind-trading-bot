@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from polymind.core.brain.decision import AIDecision
-from polymind.data.models import TradeSignal
+from polymind.data.models import TradeAction, TradeSignal
 from polymind.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,6 +21,17 @@ class CacheProtocol(Protocol):
 
         Returns:
             Updated exposure value
+        """
+        ...
+
+    async def update_daily_pnl(self, delta: float) -> float:
+        """Update daily P&L atomically.
+
+        Args:
+            delta: Amount to add to current P&L (positive or negative)
+
+        Returns:
+            Updated P&L value
         """
         ...
 
@@ -74,6 +85,10 @@ class PaperExecutor:
     ) -> ExecutionResult:
         """Execute a paper trade based on signal and AI decision.
 
+        Handles both BUY and SELL actions:
+        - BUY: Adds to exposure (costs money to enter position)
+        - SELL: Reduces exposure and realizes P&L (exits position)
+
         Args:
             signal: The trade signal to execute
             decision: The AI decision containing execution parameters
@@ -81,10 +96,14 @@ class PaperExecutor:
         Returns:
             ExecutionResult indicating success/failure and execution details
         """
+        is_sell = signal.action == TradeAction.SELL
+        action_str = "SELL" if is_sell else "BUY"
+
         logger.debug(
-            "Starting paper execution: market={} side={} size={}",
+            "Starting paper execution: market={} side={} action={} size={}",
             signal.market_id,
             signal.side,
+            action_str,
             decision.size,
         )
 
@@ -107,15 +126,40 @@ class PaperExecutor:
         executed_price = signal.price
 
         # Update exposure tracking in cache
-        await self.cache.update_open_exposure(executed_size)
+        # BUY: positive exposure (entering position)
+        # SELL: negative exposure (exiting position) and realize P&L
+        if is_sell:
+            # Selling reduces exposure
+            exposure_delta = -executed_size
+            await self.cache.update_open_exposure(exposure_delta)
 
-        logger.info(
-            "Paper trade executed: market={} side={} size={:.4f} price={:.4f}",
-            signal.market_id,
-            signal.side,
-            executed_size,
-            executed_price,
-        )
+            # Estimate P&L from the sell
+            # In prediction markets: P&L = shares * (sell_price - entry_price)
+            # Since we don't track entry price, we estimate based on price
+            # For simplicity: assume average entry at 0.50, so P&L = size * (price - 0.5)
+            # This is a rough estimate - proper tracking would need position management
+            estimated_pnl = executed_size * (executed_price - 0.5)
+            await self.cache.update_daily_pnl(estimated_pnl)
+
+            logger.info(
+                "Paper SELL executed: market={} side={} size={:.4f} price={:.4f} est_pnl={:.2f}",
+                signal.market_id,
+                signal.side,
+                executed_size,
+                executed_price,
+                estimated_pnl,
+            )
+        else:
+            # Buying increases exposure
+            await self.cache.update_open_exposure(executed_size)
+
+            logger.info(
+                "Paper BUY executed: market={} side={} size={:.4f} price={:.4f}",
+                signal.market_id,
+                signal.side,
+                executed_size,
+                executed_price,
+            )
 
         return ExecutionResult(
             success=True,
@@ -123,7 +167,7 @@ class PaperExecutor:
             executed_price=executed_price,
             paper_mode=True,
             message=(
-                f"Paper trade executed: {signal.side} {executed_size:.4f} "
+                f"Paper trade executed: {action_str} {signal.side} {executed_size:.4f} "
                 f"@ {executed_price:.4f}"
             ),
         )

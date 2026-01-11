@@ -440,3 +440,78 @@ class Database:
                 await session.delete(market_filter)
                 return True
             return False
+
+    # PnL and Resolution methods
+
+    async def get_trades_without_pnl(self) -> list[Trade]:
+        """Get all executed trades that don't have PnL calculated yet.
+
+        Returns:
+            List of Trade objects with null PnL.
+        """
+        async with self.session() as session:
+            result = await session.execute(
+                select(Trade)
+                .where(Trade.executed == True)  # noqa: E712
+                .where(Trade.pnl == None)  # noqa: E711
+                .options(selectinload(Trade.wallet))
+            )
+            return list(result.scalars().all())
+
+    async def update_trade_pnl(self, trade_id: int, pnl: float) -> bool:
+        """Update the PnL for a trade.
+
+        Args:
+            trade_id: The trade ID to update.
+            pnl: The calculated PnL value.
+
+        Returns:
+            True if updated, False if not found.
+        """
+        async with self.session() as session:
+            result = await session.execute(
+                select(Trade).where(Trade.id == trade_id)
+            )
+            trade = result.scalar_one_or_none()
+            if trade:
+                trade.pnl = pnl
+                return True
+            return False
+
+    async def get_pnl_summary(self) -> dict:
+        """Get PnL summary for all resolved trades.
+
+        Returns:
+            Dictionary with total_pnl, win_count, loss_count, etc.
+        """
+        async with self.session() as session:
+            # Get all trades with PnL
+            result = await session.execute(
+                select(Trade)
+                .where(Trade.executed == True)  # noqa: E712
+                .where(Trade.pnl != None)  # noqa: E711
+            )
+            trades = list(result.scalars().all())
+
+            if not trades:
+                return {
+                    "total_pnl": 0.0,
+                    "win_count": 0,
+                    "loss_count": 0,
+                    "win_rate": 0.0,
+                    "total_trades": 0,
+                    "avg_pnl": 0.0,
+                }
+
+            total_pnl = sum(t.pnl for t in trades)
+            wins = [t for t in trades if t.pnl > 0]
+            losses = [t for t in trades if t.pnl <= 0]
+
+            return {
+                "total_pnl": round(total_pnl, 2),
+                "win_count": len(wins),
+                "loss_count": len(losses),
+                "win_rate": round(len(wins) / len(trades) * 100, 1) if trades else 0.0,
+                "total_trades": len(trades),
+                "avg_pnl": round(total_pnl / len(trades), 2) if trades else 0.0,
+            }
