@@ -28,6 +28,9 @@ import {
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface Trade {
   id: number;
   market_id: string;
@@ -44,7 +47,6 @@ interface Trade {
 
 export default function ActivityPage() {
   const { user, profile } = useAuth();
-  const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

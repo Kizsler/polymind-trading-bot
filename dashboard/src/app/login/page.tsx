@@ -8,14 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Mail, Github, MessageCircle } from "lucide-react";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const supabase = createClient();
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();

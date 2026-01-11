@@ -28,6 +28,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/supabase/auth-context";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface WalletData {
   id: number;
   address: string;
@@ -40,7 +43,6 @@ interface WalletData {
 export default function WalletsPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const supabase = createClient();
 
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const [loading, setLoading] = useState(true);

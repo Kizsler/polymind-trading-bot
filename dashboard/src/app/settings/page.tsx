@@ -28,6 +28,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface TradeSettings {
   copy_percentage: number;
   max_daily_exposure: number;
@@ -39,8 +42,7 @@ interface TradeSettings {
 }
 
 export default function SettingsPage() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const supabase = createClient();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -68,6 +70,7 @@ export default function SettingsPage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Notification settings (local only for now)
   const [discordEnabled, setDiscordEnabled] = useState(false);
@@ -131,6 +134,7 @@ export default function SettingsPage() {
     if (!user) return;
     setIsSaving(true);
     setSaveSuccess(false);
+    setSaveError(null);
     try {
       const { error } = await supabase
         .from("profiles")
@@ -147,10 +151,15 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
+      // Refresh the profile in auth context so changes are reflected everywhere
+      await refreshProfile();
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save settings:", err);
+      setSaveError(err.message || "Failed to save settings");
+      setTimeout(() => setSaveError(null), 5000);
     } finally {
       setIsSaving(false);
     }
@@ -601,7 +610,13 @@ export default function SettingsPage() {
 
         {/* Save Button */}
         {user && !authLoading && (
-          <div className="mt-8 flex justify-end gap-3">
+          <div className="mt-8 flex justify-end gap-3 items-center">
+            {saveError && (
+              <div className="flex items-center gap-2 text-loss">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{saveError}</span>
+              </div>
+            )}
             {saveSuccess && (
               <div className="flex items-center gap-2 text-profit">
                 <CheckCircle className="h-4 w-4" />

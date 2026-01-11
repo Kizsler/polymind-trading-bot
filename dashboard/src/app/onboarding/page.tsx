@@ -30,9 +30,11 @@ interface RecommendedWallet {
 
 const BALANCE_OPTIONS = [100, 500, 1000, 5000, 10000];
 
+// Get singleton client outside component
+const supabase = createClient();
+
 export default function OnboardingPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);

@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface RecommendedWallet {
   id: number;
   address: string;
@@ -44,7 +47,6 @@ interface UserSelection {
 }
 
 export default function AccountPage() {
-  const supabase = createClient();
   const { user, profile, signOut, refreshProfile } = useAuth();
 
   const [loading, setLoading] = useState(false);
