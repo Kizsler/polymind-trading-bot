@@ -118,6 +118,8 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     if (!userId) {
       console.error("No userId - cannot complete onboarding");
+      alert("Session expired. Please refresh and try again.");
+      router.push("/login");
       return;
     }
     setLoading(true);
@@ -418,9 +420,9 @@ export default function OnboardingPage() {
                   size="lg"
                   className="gradient-violet text-white px-8"
                   onClick={handleComplete}
-                  disabled={loading || !userId}
+                  disabled={loading}
                 >
-                  {loading || !userId ? (
+                  {loading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
