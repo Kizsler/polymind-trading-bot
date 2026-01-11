@@ -39,7 +39,7 @@ interface TrackedWallet {
 }
 
 export function StatusPanel() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [wallets, setWallets] = useState<TrackedWallet[]>([]);
@@ -192,13 +192,18 @@ export function StatusPanel() {
     if (!user) return;
     setIsToggling(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from("profiles")
         .update({ bot_status: isRunning ? "stopped" : "running" })
         .eq("id", user.id);
 
-      // Refresh profile would be needed here - for now just toggle local state
-      window.location.reload();
+      if (error) {
+        console.error("Failed to update bot status:", error);
+        return;
+      }
+
+      // Refresh profile to get updated bot_status
+      await refreshProfile();
     } catch (err) {
       console.error("Failed to toggle bot:", err);
     } finally {
