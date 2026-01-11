@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "./client";
 
 interface Profile {
@@ -42,65 +42,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const initRef = useRef(false);
 
-  const refreshProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+  const fetchProfile = async (userId: string) => {
+    try {
       const { data } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single();
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const data = await fetchProfile(user.id);
       setProfile(data);
     }
   };
 
+  // Initial load
   useEffect(() => {
-    // Prevent double init in React strict mode
-    if (initRef.current) return;
-    initRef.current = true;
-
-    let cancelled = false;
-
-    // Safety timeout - if loading takes more than 8 seconds, force completion
-    const safetyTimeout = setTimeout(() => {
-      if (!cancelled) {
-        console.warn("Auth loading timeout - forcing completion");
-        setLoading(false);
-      }
-    }, 8000);
+    let mounted = true;
 
     const init = async () => {
-      console.log("Auth init starting...");
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        console.log("Auth getUser result:", user?.email, authError?.message);
+        if (!mounted) return;
 
-        if (cancelled) return;
-
-        setUser(user ?? null);
-
-        if (user) {
-          const { data, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .single();
-
-          console.log("Profile fetch result:", data?.id, profileError?.message);
-
-          if (!cancelled) {
-            setProfile(data ?? null);
+        if (session?.user) {
+          setUser(session.user);
+          const profileData = await fetchProfile(session.user.id);
+          if (mounted) {
+            setProfile(profileData);
           }
         }
       } catch (err) {
         console.error("Auth init error:", err);
       } finally {
-        if (!cancelled) {
-          console.log("Auth init complete");
-          clearTimeout(safetyTimeout);
+        if (mounted) {
           setLoading(false);
         }
       }
@@ -108,43 +91,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     init();
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: string, session: Session | null) => {
-        if (cancelled) return;
-
-        console.log("Auth state change:", event, session?.user?.email);
-
-        setUser(session?.user ?? null);
+      async (_event: AuthChangeEvent, session: Session | null) => {
+        if (!mounted) return;
 
         if (session?.user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-
-          if (!cancelled) {
-            setProfile(data ?? null);
+          setUser(session.user);
+          const profileData = await fetchProfile(session.user.id);
+          if (mounted) {
+            setProfile(profileData);
           }
         } else {
+          setUser(null);
           setProfile(null);
         }
 
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     );
 
     return () => {
-      cancelled = true;
-      clearTimeout(safetyTimeout);
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
     window.location.href = "/login";
   };
 
