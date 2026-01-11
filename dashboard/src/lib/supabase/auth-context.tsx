@@ -9,6 +9,11 @@ interface Profile {
   display_name: string | null;
   starting_balance: number;
   copy_percentage: number;
+  max_daily_exposure: number;
+  max_trades_per_day: number;
+  min_account_balance: number;
+  ai_enabled: boolean;
+  auto_trade: boolean;
   bot_status: "running" | "paused" | "stopped";
   onboarding_completed: boolean;
 }
