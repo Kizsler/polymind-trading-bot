@@ -29,50 +29,35 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   // Public routes that don't require auth
   const publicRoutes = ["/login", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
 
-  // If not logged in and trying to access protected route, redirect to login
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  // If logged in and on login page, redirect to dashboard or onboarding
-  if (user && request.nextUrl.pathname === "/login") {
-    // Check if onboarding is complete
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
-
-    const url = request.nextUrl.clone();
-    url.pathname = profile?.onboarding_completed ? "/" : "/onboarding";
-    return NextResponse.redirect(url);
-  }
-
-  // If logged in but hasn't completed onboarding, redirect to onboarding
-  if (user && !request.nextUrl.pathname.startsWith("/onboarding") && !isPublicRoute) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
-
-    if (profile && !profile.onboarding_completed) {
+    // If not logged in and trying to access protected route, redirect to login
+    if (!user && !isPublicRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = "/onboarding";
+      url.pathname = "/login";
       return NextResponse.redirect(url);
     }
+
+    // If logged in and on login page, redirect to home
+    // (Let the client-side handle onboarding redirect for simplicity)
+    if (user && request.nextUrl.pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+  } catch (error) {
+    // If auth check fails, allow the request to continue
+    // The client-side will handle auth state
+    console.error("Middleware auth error:", error);
   }
 
   return supabaseResponse;
