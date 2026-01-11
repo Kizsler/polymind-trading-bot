@@ -8,11 +8,16 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
+  // Only enable WebSocket if explicitly configured (not in production without backend)
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
 
   return (
     <AuthProvider>
-      <WebSocketProvider url={wsUrl}>{children}</WebSocketProvider>
+      {wsUrl ? (
+        <WebSocketProvider url={wsUrl}>{children}</WebSocketProvider>
+      ) : (
+        children
+      )}
     </AuthProvider>
   );
 }

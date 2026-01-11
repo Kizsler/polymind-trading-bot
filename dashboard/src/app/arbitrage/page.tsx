@@ -36,12 +36,37 @@ import {
   ArrowLeftRight,
   DollarSign,
   Target,
+  Construction,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { api, fetcher, MarketMapping, ArbitrageOpportunity } from "@/lib/api";
 
+// Check if API is configured
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ArbitragePage() {
+  // Show coming soon if API not configured
+  if (!API_URL) {
+    return (
+      <ThreeColumnLayout>
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="h-20 w-20 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-6">
+            <Construction className="h-10 w-10 text-violet-400" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Arbitrage Coming Soon</h1>
+          <p className="text-muted-foreground text-center max-w-md">
+            Cross-platform arbitrage between Polymarket and Kalshi will be available in a future update.
+            For now, focus on copy trading with the main dashboard.
+          </p>
+          <Button variant="outline" className="mt-6" onClick={() => window.location.href = "/"}>
+            Back to Dashboard
+          </Button>
+        </div>
+      </ThreeColumnLayout>
+    );
+  }
+
   const [polymarketId, setPolymarketId] = useState("");
   const [kalshiId, setKalshiId] = useState("");
   const [description, setDescription] = useState("");
