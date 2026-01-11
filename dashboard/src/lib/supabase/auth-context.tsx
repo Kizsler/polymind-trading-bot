@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { createClient } from "./client";
 
@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initRef = useRef(false);
 
   const refreshProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -56,47 +57,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Prevent double init in React strict mode
+    if (initRef.current) return;
+    initRef.current = true;
+
     let cancelled = false;
 
+    // Safety timeout - if loading takes more than 8 seconds, force completion
+    const safetyTimeout = setTimeout(() => {
+      if (!cancelled) {
+        console.warn("Auth loading timeout - forcing completion");
+        setLoading(false);
+      }
+    }, 8000);
+
     const init = async () => {
+      console.log("Auth init starting...");
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        if (authError) {
-          console.error("Auth getUser error:", authError);
-        }
+        console.log("Auth getUser result:", user?.email, authError?.message);
 
         if (cancelled) return;
 
-        setUser(user);
+        setUser(user ?? null);
 
         if (user) {
-          try {
-            const { data, error: profileError } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", user.id)
-              .single();
+          const { data, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
 
-            if (profileError) {
-              console.error("Profile fetch error:", profileError);
-            }
+          console.log("Profile fetch result:", data?.id, profileError?.message);
 
-            if (!cancelled) {
-              setProfile(data);
-            }
-          } catch (err) {
-            console.error("Profile fetch exception:", err);
-            if (!cancelled) {
-              setProfile(null);
-            }
+          if (!cancelled) {
+            setProfile(data ?? null);
           }
         }
       } catch (err) {
         console.error("Auth init error:", err);
       } finally {
-        // Always set loading to false, even if there were errors
         if (!cancelled) {
+          console.log("Auth init complete");
+          clearTimeout(safetyTimeout);
           setLoading(false);
         }
       }
@@ -108,26 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event: string, session: Session | null) => {
         if (cancelled) return;
 
-        // Set loading when auth state changes to prevent race conditions
-        setLoading(true);
+        console.log("Auth state change:", event, session?.user?.email);
+
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          try {
-            const { data } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
+          const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
 
-            if (!cancelled) {
-              setProfile(data);
-            }
-          } catch (err) {
-            console.error("Profile fetch error on auth change:", err);
-            if (!cancelled) {
-              setProfile(null);
-            }
+          if (!cancelled) {
+            setProfile(data ?? null);
           }
         } else {
           setProfile(null);
@@ -141,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, []);
