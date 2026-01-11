@@ -13,6 +13,7 @@ interface Profile {
   max_trades_per_day: number;
   min_account_balance: number;
   ai_enabled: boolean;
+  confidence_threshold: number;
   auto_trade: boolean;
   bot_status: "running" | "paused" | "stopped";
   onboarding_completed: boolean;
