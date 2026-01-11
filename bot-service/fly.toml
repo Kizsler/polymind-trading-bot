@@ -1,0 +1,14 @@
+# fly.toml - PolyMind Bot Service
+app = 'polymind-bot'
+primary_region = 'iad'
+
+[build]
+
+# No HTTP service - this is a background worker
+[processes]
+  bot = "python -u main.py"
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
