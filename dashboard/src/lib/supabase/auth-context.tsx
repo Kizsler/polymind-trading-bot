@@ -60,52 +60,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error("Auth getUser error:", authError);
+        }
 
         if (cancelled) return;
 
         setUser(user);
 
         if (user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .single();
+          try {
+            const { data, error: profileError } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", user.id)
+              .single();
 
-          if (!cancelled) {
-            setProfile(data);
+            if (profileError) {
+              console.error("Profile fetch error:", profileError);
+            }
+
+            if (!cancelled) {
+              setProfile(data);
+            }
+          } catch (err) {
+            console.error("Profile fetch exception:", err);
+            if (!cancelled) {
+              setProfile(null);
+            }
           }
         }
       } catch (err) {
         console.error("Auth init error:", err);
-      }
-
-      if (!cancelled) {
-        setLoading(false);
+      } finally {
+        // Always set loading to false, even if there were errors
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: string, session: Session | null) => {
+      async (event: string, session: Session | null) => {
         if (cancelled) return;
 
+        // Set loading when auth state changes to prevent race conditions
+        setLoading(true);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+          try {
+            const { data } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
 
-          if (!cancelled) {
-            setProfile(data);
+            if (!cancelled) {
+              setProfile(data);
+            }
+          } catch (err) {
+            console.error("Profile fetch error on auth change:", err);
+            if (!cancelled) {
+              setProfile(null);
+            }
           }
         } else {
           setProfile(null);
+        }
+
+        if (!cancelled) {
+          setLoading(false);
         }
       }
     );
