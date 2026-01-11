@@ -1,4 +1,4 @@
-# fly.toml - PolyMind Bot Service
+# fly.toml - PolyMind Bot Service (Background Worker)
 app = 'polymind-bot'
 primary_region = 'iad'
 
