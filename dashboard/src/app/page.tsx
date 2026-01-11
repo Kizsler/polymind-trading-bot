@@ -1,25 +1,68 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { ThreeColumnLayout } from "@/components/layouts/three-column-layout";
-import { PnLChart, EquityChart } from "@/components/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PnLChart, EquityChart, TradeTimeline } from "@/components/charts";
+import { PositionsBreakdown } from "@/components/positions-breakdown";
+import { WalletPerformance } from "@/components/wallet-performance";
+import { PnLSummary } from "@/components/pnl-summary";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import {
   Home,
   ChevronRight,
   Search,
-  TrendingUp,
-  TrendingDown,
-  Activity,
 } from "lucide-react";
-import useSWR from "swr";
-import { fetcher, Trade, Status } from "@/lib/api";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
+
+interface Trade {
+  id: number;
+  market_id: string;
+  market_title?: string;
+  wallet: string;
+  wallet_alias?: string;
+  side: "YES" | "NO";
+  size: number;
+  price: number;
+  pnl?: number;
+  executed: boolean;
+  timestamp: string;
+}
 
 export default function DashboardPage() {
-  const { data: status } = useSWR<Status>("/status", fetcher, { refreshInterval: 5000 });
-  const { data: trades } = useSWR<Trade[]>("/trades?limit=100", fetcher, { refreshInterval: 10000 });
+  const { user, profile } = useAuth();
+  const supabase = createClient();
+  const [trades, setTrades] = useState<Trade[]>([]);
+
+  // Fetch user's trades from Supabase
+  useEffect(() => {
+    const fetchTrades = async () => {
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false })
+        .limit(100);
+
+      if (data) setTrades(data);
+    };
+
+    fetchTrades();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel("trades")
+      .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, fetchTrades)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
+
+  const startingBalance = profile?.starting_balance || 1000;
 
   // Compute PnL data from real trades grouped by day
   const pnlData = useMemo(() => {
@@ -62,7 +105,6 @@ export default function DashboardPage() {
 
   // Compute equity curve from trades
   const equityData = useMemo(() => {
-    const startingEquity = 1000; // Starting balance
     if (!trades || trades.length === 0) {
       const data = [];
       const now = new Date();
@@ -71,7 +113,7 @@ export default function DashboardPage() {
         date.setDate(date.getDate() - i);
         data.push({
           date: date.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-          equity: startingEquity,
+          equity: startingBalance,
         });
       }
       return data;
@@ -86,7 +128,7 @@ export default function DashboardPage() {
 
     const data = [];
     const now = new Date();
-    let equity = startingEquity;
+    let equity = startingBalance;
     for (let i = 13; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
@@ -98,7 +140,7 @@ export default function DashboardPage() {
       });
     }
     return data;
-  }, [trades]);
+  }, [trades, startingBalance]);
 
   return (
     <ThreeColumnLayout>
@@ -129,69 +171,30 @@ export default function DashboardPage() {
 
       {/* Charts Grid */}
       <div className="space-y-6">
+        {/* PnL Summary - Most important, at the top */}
         <div className="animate-fade-in stagger-2">
+          <PnLSummary />
+        </div>
+
+        {/* Trade Timeline */}
+        <div className="animate-fade-in stagger-3">
+          <TradeTimeline />
+        </div>
+
+        {/* Two-column grid for Positions and Wallet Performance */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in stagger-4">
+          <PositionsBreakdown />
+          <WalletPerformance />
+        </div>
+
+        <div className="animate-fade-in stagger-5">
           <PnLChart data={pnlData} />
         </div>
 
-        <div className="animate-fade-in stagger-3">
+        <div className="animate-fade-in stagger-6">
           <EquityChart data={equityData} />
         </div>
 
-        {/* Recent Trades */}
-        <Card className="glass border-border animate-fade-in stagger-4">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-display">Recent Trades</CardTitle>
-              <Activity className="h-4 w-4 text-emerald-500 animate-pulse-live" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {trades && trades.length > 0 ? (
-              <div className="space-y-3">
-                {trades.slice(0, 5).map((trade, i) => (
-                  <div
-                    key={trade.id || i}
-                    className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                        trade.side === "YES" ? "bg-emerald-500/10" : "bg-red-500/10"
-                      }`}>
-                        {trade.side === "YES" ? (
-                          <TrendingUp className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {trade.market_title || trade.market_id.slice(0, 20) + "..."}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {trade.wallet_alias || trade.wallet.slice(0, 10) + "..."}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-mono">${trade.size.toFixed(2)}</p>
-                      <Badge variant="outline" className={`text-xs ${
-                        trade.side === "YES"
-                          ? "border-emerald-500/30 text-emerald-400"
-                          : "border-red-500/30 text-red-400"
-                      }`}>
-                        {trade.side}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">
-                No recent trades
-              </p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </ThreeColumnLayout>
   );
