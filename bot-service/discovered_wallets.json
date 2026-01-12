@@ -1,0 +1,171 @@
+{
+  "scraped_at": "2026-01-12T01:39:19.066125+00:00",
+  "criteria": {
+    "min_trades": 10,
+    "min_volume": 500,
+    "lookback_hours": 48
+  },
+  "leaderboard_wallets": [],
+  "active_traders": [
+    {
+      "address": "0xe8dd7741ccb12350957ec71e9ee332e0d1e6ec86",
+      "trade_count": 977,
+      "total_volume": 39388.12,
+      "buy_volume": 39388.12,
+      "sell_volume": 0,
+      "markets_traded": 27
+    },
+    {
+      "address": "0xd218e474776403a330142299f7796e8ba32eb5c9",
+      "trade_count": 312,
+      "total_volume": 8879.13,
+      "buy_volume": 8879.13,
+      "sell_volume": 0,
+      "markets_traded": 25
+    },
+    {
+      "address": "0xde0463ea7f611b065e8ab06bbfbddad75e6dfa37",
+      "trade_count": 18,
+      "total_volume": 7886.05,
+      "buy_volume": 7886.05,
+      "sell_volume": 0,
+      "markets_traded": 2
+    },
+    {
+      "address": "0x63d43bbb87f85af03b8f2f9e2fad7b54334fa2f1",
+      "trade_count": 215,
+      "total_volume": 5287.16,
+      "buy_volume": 5287.16,
+      "sell_volume": 0,
+      "markets_traded": 18
+    },
+    {
+      "address": "0xa3ad70cf48a2f2b44163e798223c01a2c2536866",
+      "trade_count": 182,
+      "total_volume": 5286.39,
+      "buy_volume": 5286.39,
+      "sell_volume": 0,
+      "markets_traded": 17
+    },
+    {
+      "address": "0xb6bed94e75c333dae24eb9c80b3fef47ef3cfcfe",
+      "trade_count": 11,
+      "total_volume": 4247.37,
+      "buy_volume": 4159.63,
+      "sell_volume": 87.74,
+      "markets_traded": 6
+    },
+    {
+      "address": "0xda88364e52cfa6c604c8a540d0cf0031ed1d990b",
+      "trade_count": 13,
+      "total_volume": 4091.45,
+      "buy_volume": 2179.15,
+      "sell_volume": 1912.31,
+      "markets_traded": 7
+    },
+    {
+      "address": "0xa8af4c7923857533b687df9bf02115156e3a325e",
+      "trade_count": 16,
+      "total_volume": 3085.17,
+      "buy_volume": 1188.66,
+      "sell_volume": 1896.51,
+      "markets_traded": 4
+    },
+    {
+      "address": "0xcd91a549956854fdc38efad7e80ff5da8f5432b8",
+      "trade_count": 66,
+      "total_volume": 2694.71,
+      "buy_volume": 2693.94,
+      "sell_volume": 0.77,
+      "markets_traded": 20
+    },
+    {
+      "address": "0x30cecdf29f069563ea21b8ae94492e41e53a6b2b",
+      "trade_count": 200,
+      "total_volume": 2563.27,
+      "buy_volume": 2562.16,
+      "sell_volume": 1.1,
+      "markets_traded": 15
+    },
+    {
+      "address": "0x1223987eb4bf8564a932f43e3cec9f28b5ced424",
+      "trade_count": 156,
+      "total_volume": 2172.99,
+      "buy_volume": 896.14,
+      "sell_volume": 1276.85,
+      "markets_traded": 6
+    },
+    {
+      "address": "0x1086771735622e6d38e22aeb939ef2bc6f317b3c",
+      "trade_count": 16,
+      "total_volume": 1697.32,
+      "buy_volume": 888.9,
+      "sell_volume": 808.42,
+      "markets_traded": 5
+    },
+    {
+      "address": "0xd0efa936523c73d8fda8950784fde84a8d7f683c",
+      "trade_count": 12,
+      "total_volume": 1306.19,
+      "buy_volume": 628.96,
+      "sell_volume": 677.23,
+      "markets_traded": 6
+    },
+    {
+      "address": "0x0b9cae2b0dfe7a71c413e0604eaac1c352f87e44",
+      "trade_count": 15,
+      "total_volume": 1301.9,
+      "buy_volume": 11.7,
+      "sell_volume": 1290.2,
+      "markets_traded": 4
+    },
+    {
+      "address": "0x1217832819e321d21f4e5a27c62b8ec6ad845d72",
+      "trade_count": 88,
+      "total_volume": 1250.88,
+      "buy_volume": 1250.88,
+      "sell_volume": 0,
+      "markets_traded": 11
+    },
+    {
+      "address": "0x8e9eedf20dfa70956d49f608a205e402d9df38e4",
+      "trade_count": 818,
+      "total_volume": 1182.57,
+      "buy_volume": 0,
+      "sell_volume": 1182.57,
+      "markets_traded": 11
+    },
+    {
+      "address": "0x814de45404c20dd9956737a83f7c8b0b039eb842",
+      "trade_count": 47,
+      "total_volume": 930.57,
+      "buy_volume": 211.5,
+      "sell_volume": 719.06,
+      "markets_traded": 6
+    },
+    {
+      "address": "0xe3726a1b9c6ba2f06585d1c9e01d00afaedaeb38",
+      "trade_count": 449,
+      "total_volume": 883.25,
+      "buy_volume": 0,
+      "sell_volume": 883.25,
+      "markets_traded": 20
+    },
+    {
+      "address": "0x90448cec34e3cfa75212374ea45ed01a258c6364",
+      "trade_count": 11,
+      "total_volume": 746.49,
+      "buy_volume": 340.65,
+      "sell_volume": 405.83,
+      "markets_traded": 3
+    },
+    {
+      "address": "0x4fb89d975e4e43d584b61f3c3b01802f700577d7",
+      "trade_count": 14,
+      "total_volume": 725.02,
+      "buy_volume": 372.44,
+      "sell_volume": 352.58,
+      "markets_traded": 4
+    }
+  ]
+}
