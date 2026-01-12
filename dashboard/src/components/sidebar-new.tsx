@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Settings,
   Zap,
+  Search,
 } from "lucide-react";
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
     items: [
       { name: "Live Activity", href: "/activity", icon: Zap },
       { name: "Markets", href: "/markets", icon: TrendingUp },
+      { name: "Discover", href: "/discover", icon: Search },
     ]
   },
 ];
