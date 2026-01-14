@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertCircle,
@@ -39,7 +47,13 @@ interface TradeSettings {
   ai_enabled: boolean;
   confidence_threshold: number;
   auto_trade: boolean;
+  ai_risk_profile: "conservative" | "moderate" | "aggressive" | "maximize_profit";
+  ai_custom_instructions: string;
 }
+
+const DEFAULT_AI_INSTRUCTIONS = `- Never sell within the first hour of buying
+- If a position is down but whale is still holding, prefer to hold
+- Take profits quickly on short-term (<7 day) markets`;
 
 export default function SettingsPage() {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
@@ -67,6 +81,8 @@ export default function SettingsPage() {
     ai_enabled: profile?.ai_enabled ?? true,
     confidence_threshold: profile?.confidence_threshold ?? 0.7,
     auto_trade: profile?.auto_trade ?? true,
+    ai_risk_profile: profile?.ai_risk_profile ?? "maximize_profit",
+    ai_custom_instructions: profile?.ai_custom_instructions ?? DEFAULT_AI_INSTRUCTIONS,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -93,6 +109,8 @@ export default function SettingsPage() {
         ai_enabled: profile.ai_enabled ?? true,
         confidence_threshold: profile.confidence_threshold ?? 0.7,
         auto_trade: profile.auto_trade ?? true,
+        ai_risk_profile: profile.ai_risk_profile ?? "maximize_profit",
+        ai_custom_instructions: profile.ai_custom_instructions ?? DEFAULT_AI_INSTRUCTIONS,
       });
       setIsEmergencyStopped(profile.bot_status === "stopped");
     }
@@ -146,6 +164,8 @@ export default function SettingsPage() {
           ai_enabled: formData.ai_enabled,
           confidence_threshold: formData.confidence_threshold,
           auto_trade: formData.auto_trade,
+          ai_risk_profile: formData.ai_risk_profile,
+          ai_custom_instructions: formData.ai_custom_instructions,
         })
         .eq("id", user.id);
 
@@ -389,22 +409,123 @@ export default function SettingsPage() {
             {/* AI Settings */}
             <TabsContent value="ai">
               <div className="grid gap-6">
+                {/* AI Sell Decisions */}
                 <Card className="bg-card border-border">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Bot className="h-5 w-5 text-primary" />
-                      AI Decision Engine
+                      AI Sell Decisions
                     </CardTitle>
                     <CardDescription>
-                      AI-powered trade filtering and analysis
+                      AI evaluates your positions and decides when to sell for optimal returns
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Enable AI Sells</p>
+                        <p className="text-sm text-muted-foreground">
+                          Let AI decide when to exit positions instead of copying whale sells
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.ai_enabled}
+                        onCheckedChange={(checked) => updateField("ai_enabled", checked)}
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-border">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Risk Profile
+                      </label>
+                      <Select
+                        value={formData.ai_risk_profile}
+                        onValueChange={(value: TradeSettings["ai_risk_profile"]) =>
+                          updateField("ai_risk_profile", value)
+                        }
+                      >
+                        <SelectTrigger className="mt-1.5 bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="maximize_profit">
+                            <div className="flex items-center gap-2">
+                              <span>Maximize Profit</span>
+                              <Badge variant="outline" className="text-xs">Default</Badge>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="aggressive">Aggressive - Hold for big wins</SelectItem>
+                          <SelectItem value="moderate">Moderate - Balanced risk/reward</SelectItem>
+                          <SelectItem value="conservative">Conservative - Quick profits, tight stops</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Controls how the AI balances profit potential vs. risk
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-border">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Confidence Threshold
+                      </label>
+                      <div className="flex items-center gap-4 mt-1.5">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={(formData.confidence_threshold * 100).toFixed(0)}
+                          onChange={(e) => updateField("confidence_threshold", parseFloat(e.target.value) / 100)}
+                          className="w-24 bg-background"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        AI must be at least this confident to execute a sell (default: 70%)
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Custom Instructions */}
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-amber-500" />
+                      Custom Instructions
+                    </CardTitle>
+                    <CardDescription>
+                      Give the AI specific guidance for your trading preferences
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8">
-                      <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-lg font-medium text-muted-foreground">Coming Soon</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Contact <span className="text-primary font-medium">@Kizsler</span> for testing
+                    <Textarea
+                      value={formData.ai_custom_instructions}
+                      onChange={(e) => updateField("ai_custom_instructions", e.target.value)}
+                      placeholder="Enter custom instructions for the AI..."
+                      className="min-h-[150px] bg-background font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Examples: "Never sell crypto positions early", "Take profits at +15% on political markets"
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 text-xs"
+                      onClick={() => updateField("ai_custom_instructions", DEFAULT_AI_INSTRUCTIONS)}
+                    >
+                      Reset to defaults
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* AI Status */}
+                <Card className="bg-secondary/30 border-border">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                      <p className="text-sm text-muted-foreground">
+                        AI sell decisions are being rolled out. Your settings will be applied when the feature goes live.
                       </p>
                     </div>
                   </CardContent>

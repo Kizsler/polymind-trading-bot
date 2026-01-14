@@ -17,6 +17,8 @@ interface Profile {
   auto_trade: boolean;
   bot_status: "running" | "paused" | "stopped";
   onboarding_completed: boolean;
+  ai_risk_profile: "conservative" | "moderate" | "aggressive" | "maximize_profit";
+  ai_custom_instructions: string;
 }
 
 interface AuthContextType {
@@ -38,10 +40,40 @@ const AuthContext = createContext<AuthContextType>({
 // Get singleton client outside component
 const supabase = createClient();
 
+// Dev mode check
+const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
+// Mock user for dev mode
+const MOCK_USER: User = {
+  id: "9f9b274c-958b-4432-a8d7-294c627b2101",
+  email: "dev@polymind.local",
+  app_metadata: {},
+  user_metadata: {},
+  aud: "authenticated",
+  created_at: new Date().toISOString(),
+} as User;
+
+const MOCK_PROFILE: Profile = {
+  id: "9f9b274c-958b-4432-a8d7-294c627b2101",
+  display_name: null,
+  starting_balance: 10000,
+  copy_percentage: 0.10,
+  max_daily_exposure: 500,
+  max_trades_per_day: 500,
+  min_account_balance: 5000,
+  ai_enabled: true,
+  confidence_threshold: 0.70,
+  auto_trade: true,
+  bot_status: "running",
+  onboarding_completed: true,
+  ai_risk_profile: "maximize_profit",
+  ai_custom_instructions: "- Never sell within the first hour of buying\n- If a position is down but whale is still holding, prefer to hold\n- Take profits quickly on short-term (<7 day) markets",
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEV_MODE ? MOCK_USER : null);
+  const [profile, setProfile] = useState<Profile | null>(DEV_MODE ? MOCK_PROFILE : null);
+  const [loading, setLoading] = useState(!DEV_MODE);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -65,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initial load
   useEffect(() => {
+    // Skip auth initialization in dev mode - we already have mock data
+    if (DEV_MODE) return;
+
     let mounted = true;
 
     const init = async () => {

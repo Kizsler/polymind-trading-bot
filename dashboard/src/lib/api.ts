@@ -22,6 +22,13 @@ export interface Trade {
   decision?: 'COPY' | 'SKIP' | 'WAIT';
   executed: boolean;
   pnl?: number;
+  action?: 'BUY' | 'SELL';
+  is_closed?: boolean;
+  ai_initiated?: boolean;
+  sell_reasoning?: string;
+  entry_price?: number;
+  exit_price?: number;
+  realized_pnl?: number;
 }
 
 export interface Status {

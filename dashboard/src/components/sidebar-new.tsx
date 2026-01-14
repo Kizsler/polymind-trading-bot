@@ -21,7 +21,7 @@ const navItems = [
     items: [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Copy Trading", href: "/wallets", icon: Users },
-      { name: "Algo", href: "/algo", icon: Brain },
+      // { name: "Algo", href: "/algo", icon: Brain }, // Hidden until AI trading launch
       { name: "Analyze", href: "/analyze", icon: BarChart3 },
       { name: "Arbitrage", href: "/arbitrage", icon: GitCompare },
     ]

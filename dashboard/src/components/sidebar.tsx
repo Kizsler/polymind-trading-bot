@@ -17,6 +17,7 @@ import {
   ClipboardList,
   User,
   Zap,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/lib/websocket";
@@ -33,6 +34,7 @@ const navigation = [
   { name: "Activity", href: "/activity", icon: Zap },
   { name: "Wallets", href: "/wallets", icon: Wallet },
   { name: "Trades", href: "/trades", icon: Activity },
+  { name: "AI Log", href: "/ai-log", icon: Bot },
   { name: "Orders", href: "/orders", icon: ClipboardList },
   { name: "Filters", href: "/filters", icon: Filter },
   { name: "Arbitrage", href: "/arbitrage", icon: GitCompare },
