@@ -46,7 +46,7 @@ interface Trade {
 }
 
 export default function ActivityPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +55,9 @@ export default function ActivityPage() {
 
   // Fetch user's trades from Supabase
   useEffect(() => {
+    // Don't fetch until auth is done loading
+    if (authLoading) return;
+
     const fetchTrades = async () => {
       if (!user) {
         setIsLoading(false);
@@ -74,16 +77,27 @@ export default function ActivityPage() {
 
     fetchTrades();
 
+    if (!user) return;
+
     // Subscribe to realtime updates
     const channel = supabase
-      .channel("activity-trades")
-      .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, fetchTrades)
+      .channel(`activity-trades-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trades",
+          filter: `user_id=eq.${user.id}`
+        },
+        fetchTrades
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase]);
+  }, [user, authLoading]);
 
   const copyPercentage = profile?.copy_percentage || 0.1;
 
@@ -276,7 +290,7 @@ export default function ActivityPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || authLoading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>

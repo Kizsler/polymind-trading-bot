@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
+
+// Get singleton client outside component
+const supabase = createClient();
 
 interface Trade {
   wallet: string;
@@ -34,27 +37,50 @@ interface WalletStats {
 }
 
 export function WalletPerformance() {
-  const { user, profile } = useAuth();
-  const supabase = createClient();
+  const { user, profile, loading: authLoading } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
 
+  const fetchTrades = useCallback(async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("trades")
+      .select("wallet, wallet_alias, side, size, price")
+      .eq("user_id", user.id)
+      .eq("executed", true)
+      .order("timestamp", { ascending: false })
+      .limit(500);
+
+    if (data) setTrades(data);
+  }, [user]);
+
   useEffect(() => {
-    const fetchTrades = async () => {
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("trades")
-        .select("wallet, wallet_alias, side, size, price")
-        .eq("user_id", user.id)
-        .eq("executed", true)
-        .order("timestamp", { ascending: false })
-        .limit(500);
-
-      if (data) setTrades(data);
-    };
+    if (authLoading) return;
+    if (!user) return;
 
     fetchTrades();
-  }, [user, supabase]);
+
+    // Subscribe to realtime updates for this user's trades
+    const channel = supabase
+      .channel(`wallet-trades-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trades",
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchTrades();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, authLoading, fetchTrades]);
 
   const copyPercentage = profile?.copy_percentage || 0.1;
 

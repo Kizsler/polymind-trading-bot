@@ -50,6 +50,12 @@ export function StatusPanel() {
     { symbol: "SOL", price: 0, change24h: 0 },
   ]);
   const [pricesLoading, setPricesLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState<string>("");
+
+  // Set date on client side only to avoid hydration mismatch
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }));
+  }, []);
 
   // Fetch user's trades from Supabase
   useEffect(() => {
@@ -460,7 +466,7 @@ export function StatusPanel() {
             </span>
           </div>
           <span className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+            {currentDate}
           </span>
         </div>
       </div>

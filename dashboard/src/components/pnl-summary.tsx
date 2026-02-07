@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import {
 import { useAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 
+// Get singleton client outside component
+const supabase = createClient();
+
 interface Trade {
   id: number;
   market_id: string;
@@ -26,11 +29,10 @@ interface Trade {
 
 export function PnLSummary() {
   const { user, profile, loading: authLoading } = useAuth();
-  const supabase = createClient();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchTrades = async () => {
+  const fetchTrades = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
@@ -42,11 +44,35 @@ export function PnLSummary() {
 
     if (data) setTrades(data);
     setLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+
     fetchTrades();
-  }, [user]);
+
+    // Subscribe to realtime updates for this user's trades
+    const channel = supabase
+      .channel(`pnl-trades-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trades",
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchTrades();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, authLoading, fetchTrades]);
 
   // Calculate PnL from trades
   const pnlData = useMemo(() => {

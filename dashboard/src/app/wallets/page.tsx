@@ -42,7 +42,7 @@ interface WalletData {
 
 export default function WalletsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,26 +55,28 @@ export default function WalletsPage() {
 
   // Fetch wallets from Supabase
   const fetchWallets = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    console.log("fetchWallets called", { userId: user?.id });
+    if (!user) return;
 
     try {
       // Get user's custom wallets
+      console.log("Fetching user_wallets...");
       const { data: userWallets, error: userError } = await supabase
         .from("user_wallets")
         .select("*")
         .eq("user_id", user.id);
 
+      console.log("user_wallets result:", { userWallets, userError });
       if (userError) throw userError;
 
       // Get user's selected recommended wallets
+      console.log("Fetching user_recommended_selections...");
       const { data: selections, error: selError } = await supabase
         .from("user_recommended_selections")
         .select("id, enabled, wallet_id")
         .eq("user_id", user.id);
 
+      console.log("selections result:", { selections, selError });
       if (selError) throw selError;
 
       // Get all recommended wallets
@@ -150,8 +152,22 @@ export default function WalletsPage() {
   };
 
   useEffect(() => {
-    fetchWallets();
-  }, [user]);
+    console.log("Wallets useEffect", { authLoading, userId: user?.id });
+
+    // Don't fetch until auth is done loading
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
+      return;
+    }
+
+    if (user) {
+      console.log("User found, fetching wallets...");
+      fetchWallets();
+    } else {
+      console.log("No user, setting loading false");
+      setLoading(false);
+    }
+  }, [user, authLoading]);
 
   const handleAddWallet = async () => {
     if (!newWalletAddress || !user) return;
@@ -203,29 +219,44 @@ export default function WalletsPage() {
       fetchWallets();
     } catch (err: any) {
       console.error("Failed to remove wallet:", err);
+      alert("Failed to remove wallet: " + (err.message || "Unknown error"));
     }
   };
 
   const handleToggleWallet = async (wallet: WalletData) => {
-    if (!user) return;
+    console.log("Toggle wallet called", { wallet, user: user?.id });
+    if (!user) {
+      alert("Not logged in - please refresh the page");
+      return;
+    }
 
     try {
       if (wallet.id < 10000) {
-        await supabase
+        console.log("Toggling custom wallet", wallet.id);
+        const { error, data } = await supabase
           .from("user_wallets")
           .update({ enabled: !wallet.enabled })
           .eq("id", wallet.id)
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .select();
+        console.log("Custom wallet toggle result:", { error, data });
+        if (error) throw error;
       } else {
-        await supabase
+        const walletId = wallet.id - 10000;
+        console.log("Toggling recommended wallet", { displayId: wallet.id, walletId, userId: user.id });
+        const { error, data } = await supabase
           .from("user_recommended_selections")
           .update({ enabled: !wallet.enabled })
-          .eq("wallet_id", wallet.id - 10000)
-          .eq("user_id", user.id);
+          .eq("wallet_id", walletId)
+          .eq("user_id", user.id)
+          .select();
+        console.log("Recommended wallet toggle result:", { error, data });
+        if (error) throw error;
       }
       fetchWallets();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to toggle wallet:", err);
+      alert("Failed to toggle wallet: " + (err.message || JSON.stringify(err)));
     }
   };
 
@@ -314,7 +345,7 @@ export default function WalletsPage() {
         )}
 
         {/* Loading State */}
-        {loading && (
+        {(loading || authLoading) && (
           <Card className="mb-8 bg-secondary/50 border-border">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -326,7 +357,7 @@ export default function WalletsPage() {
         )}
 
         {/* Stats */}
-        {!loading && (
+        {!loading && !authLoading && (
           <div className="grid gap-4 md:grid-cols-3 mb-8">
             <Card className="bg-card border-border">
               <CardContent className="pt-6">
@@ -354,7 +385,7 @@ export default function WalletsPage() {
         )}
 
         {/* Empty State */}
-        {!loading && wallets.length === 0 && (
+        {!loading && !authLoading && wallets.length === 0 && (
           <Card className="bg-card border-border">
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground mb-4">

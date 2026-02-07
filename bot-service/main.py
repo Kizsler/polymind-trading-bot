@@ -303,6 +303,95 @@ async def update_trade_pnl(supabase: Client):
         logger.error(f"Error updating PnL: {e}")
 
 
+async def close_resolved_positions(supabase: Client):
+    """
+    Automatically close positions in markets that have ended/resolved.
+    This cleans up the open positions and calculates final realized PnL.
+    """
+    try:
+        # Get all open positions
+        response = supabase.table("trades").select("*").eq(
+            "is_closed", False
+        ).eq("action", "BUY").execute()
+
+        open_trades = response.data or []
+        if not open_trades:
+            return
+
+        # Group by market_id to minimize API calls
+        markets: dict[str, list[dict]] = {}
+        for trade in open_trades:
+            market_id = trade.get("market_id", "")
+            if market_id:
+                if market_id not in markets:
+                    markets[market_id] = []
+                markets[market_id].append(trade)
+
+        closed_count = 0
+        for market_id, trades in markets.items():
+            # Fetch market data to check if resolved
+            market_data = await fetch_market_price(market_id)
+            if not market_data:
+                continue
+
+            # Skip if market is still open
+            if not market_data.get("resolved", False):
+                continue
+
+            resolution = market_data.get("resolution", "").lower()
+            logger.info(f"🏁 Market {market_id[:10]}... resolved to: {resolution.upper()}")
+
+            for trade in trades:
+                trade_id = trade.get("id")
+                user_id = trade.get("user_id")
+                side = trade.get("side", "YES").upper()
+                entry_price = float(trade.get("price", 0))
+                size = float(trade.get("size", 0))
+
+                # Calculate final price based on resolution
+                if resolution == "yes":
+                    final_price = 1.0 if side == "YES" else 0.0
+                elif resolution == "no":
+                    final_price = 0.0 if side == "YES" else 1.0
+                else:
+                    # Unknown/void resolution - use entry price (no gain/loss)
+                    final_price = entry_price
+
+                # Calculate realized PnL
+                realized_pnl = (final_price - entry_price) * size
+
+                try:
+                    # Update the trade as closed with resolution details
+                    supabase.table("trades").update({
+                        "is_closed": True,
+                        "is_resolved": True,
+                        "realized_pnl": round(realized_pnl, 2),
+                        "pnl": round(realized_pnl, 2),
+                        "exit_price": final_price,
+                        "sell_reasoning": f"Market resolved to {resolution.upper()}"
+                    }).eq("id", trade_id).execute()
+
+                    # Invalidate position cache
+                    invalidate_position_cache(user_id)
+
+                    pnl_emoji = "🎉" if realized_pnl >= 0 else "💔"
+                    logger.info(
+                        f"{pnl_emoji} Closed resolved position for user {user_id[:8]}: "
+                        f"{side} ${size:.2f} | Resolution: {resolution.upper()} | "
+                        f"PnL: ${realized_pnl:+.2f}"
+                    )
+                    closed_count += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to close resolved trade {trade_id}: {e}")
+
+        if closed_count > 0:
+            logger.info(f"🏁 Closed {closed_count} positions from resolved markets")
+
+    except Exception as e:
+        logger.error(f"Error closing resolved positions: {e}")
+
+
 async def process_trade_for_user(
     supabase: Client,
     user: dict,
@@ -1277,10 +1366,12 @@ async def run_trading_cycle(supabase: Client):
 
 
 async def pnl_update_loop(supabase: Client):
-    """Continuously update PnL for all trades"""
+    """Continuously update PnL for all trades and close resolved positions"""
     while True:
         try:
             await update_trade_pnl(supabase)
+            # Check for and close resolved positions
+            await close_resolved_positions(supabase)
         except Exception as e:
             logger.error(f"PnL update error: {e}")
 

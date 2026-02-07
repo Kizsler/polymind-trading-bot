@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,12 @@ const bottomItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [lastLogin, setLastLogin] = useState<string>("");
+
+  // Set date on client side only to avoid hydration mismatch
+  useEffect(() => {
+    setLastLogin(new Date().toLocaleDateString());
+  }, []);
 
   return (
     <aside className="w-60 h-screen bg-card/50 border-r border-border flex flex-col">
@@ -53,7 +60,7 @@ export function Sidebar() {
         <div className="mt-4">
           <p className="text-foreground font-medium">Welcome Back</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Last Login: {new Date().toLocaleDateString()}
+            Last Login: {lastLogin}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "./client";
 
 interface Profile {
@@ -43,7 +43,7 @@ const supabase = createClient();
 // Dev mode check
 const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
-// Mock user for dev mode
+// Mock data for dev mode
 const MOCK_USER: User = {
   id: "9f9b274c-958b-4432-a8d7-294c627b2101",
   email: "dev@polymind.local",
@@ -75,74 +75,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(DEV_MODE ? MOCK_PROFILE : null);
   const [loading, setLoading] = useState(!DEV_MODE);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return null;
+      }
       return data;
-    } catch {
+    } catch (err) {
+      console.error("Exception fetching profile:", err);
       return null;
     }
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       const data = await fetchProfile(user.id);
       setProfile(data);
     }
-  };
+  }, [user, fetchProfile]);
 
-  // Initial load
+  // Initialize auth state - runs only once
   useEffect(() => {
-    // Skip auth initialization in dev mode - we already have mock data
     if (DEV_MODE) return;
 
     let mounted = true;
 
-    const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          const profileData = await fetchProfile(session.user.id);
-          if (mounted) {
-            setProfile(profileData);
-          }
-        }
-      } catch (err) {
-        console.error("Auth init error:", err);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    init();
-
-    // Listen for auth changes
+    // onAuthStateChange fires immediately with INITIAL_SESSION event
+    // This handles both initial load and subsequent auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, session: Session | null) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
+        console.log("Auth state change:", event, session?.user?.email || "no user");
+
         if (!mounted) return;
 
         if (session?.user) {
           setUser(session.user);
-          const profileData = await fetchProfile(session.user.id);
-          if (mounted) {
-            setProfile(profileData);
-          }
+          setLoading(false);
+          // Fetch profile in background
+          fetchProfile(session.user.id).then(profileData => {
+            if (mounted) setProfile(profileData);
+          });
         } else {
           setUser(null);
           setProfile(null);
+          setLoading(false);
         }
 
-        setLoading(false);
+        console.log("Auth state change handled");
       }
     );
 
@@ -150,14 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]); // Include fetchProfile dependency
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     window.location.href = "/login";
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
